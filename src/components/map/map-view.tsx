@@ -8,13 +8,13 @@ import {
   type Map as MapLibreMap,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { PokemonDrawer } from "@/components/pokemon/pokemon-drawer";
+import { PokemonSheet } from "@/components/pokemon/pokemon-sheet";
 import { usePokemonList } from "@/hooks/use-pokemon-list";
 import { spawnPosition } from "@/lib/spawn";
 import type { PokemonListItem, PokemonPage } from "@/types/pokemon";
 import { PokemonMarkers } from "./pokemon-markers";
 
-/** Ancho del panel de detalle; debe coincidir con `.pokemon-drawer` en CSS. */
+/** Ancho del panel de detalle; debe coincidir con `sm:w-[380px]` en pokemon-sheet.tsx. */
 const DRAWER_WIDTH = 380;
 
 // MapLibre v6 con bundler: hay que indicar dónde está el worker, una sola vez
@@ -68,7 +68,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     map.flyTo({
       center: spawnPosition(selected.id, selected.types),
       zoom: Math.max(map.getZoom(), 8),
-      offset: window.innerWidth >= 768 ? [-DRAWER_WIDTH / 2, 0] : [0, -120],
+      offset: window.innerWidth >= 640 ? [-DRAWER_WIDTH / 2, 0] : [0, -120],
       duration: reduced ? 0 : 1800,
       essential: false,
     });
@@ -314,7 +314,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
           onSelect={setSelected}
         />
       )}
-      <PokemonDrawer selectedId={selectedId} onClose={closeDrawer} />
+      <PokemonSheet selectedId={selectedId} onClose={closeDrawer} />
       <div
         role="status"
         style={{

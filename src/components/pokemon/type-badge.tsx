@@ -3,14 +3,8 @@ import { typeColor, typeLabel } from "@/lib/type-colors";
 export function TypeBadge({ type }: { type: string }) {
   return (
     <span
-      style={{
-        padding: "2px 10px",
-        borderRadius: 999,
-        background: typeColor(type),
-        color: "#0b1020",
-        fontSize: 12,
-        fontWeight: 700,
-      }}
+      className="rounded-full px-3 py-0.5 text-xs font-bold text-slate-900"
+      style={{ backgroundColor: typeColor(type) }}
     >
       {typeLabel(type)}
     </span>

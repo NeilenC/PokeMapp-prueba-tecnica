@@ -8,7 +8,8 @@ Registro de lo hecho, en orden cronológico inverso.
 - La lista trae `spriteUrl` armado desde el id (sin requests extra).
 - [lib/spawn.ts](src/lib/spawn.ts): posición determinista por id (PRNG con semilla). Provisorio: recuadro sobre Argentina, sin biomas todavía.
 - [pokemon-markers.tsx](src/components/map/pokemon-markers.tsx): un marcador DOM por Pokémon (sprite + pulso radar), accesible por teclado.
-- [pokemon-drawer.tsx](src/components/pokemon/pokemon-drawer.tsx) + `type-badge`, `pokemon-skeleton`: panel con skeleton, error con reintento, cierre con Esc y animación (respeta `prefers-reduced-motion`).
+- Tailwind v4 + shadcn/ui ([components.json](components.json)). Se reemplazó el CSS a mano del panel por utilidades de Tailwind.
+- [pokemon-sheet.tsx](src/components/pokemon/pokemon-sheet.tsx) sobre el `Sheet` de shadcn ([ui/sheet.tsx](src/components/ui/sheet.tsx)), no modal (sin overlay, el mapa sigue usable), con `type-badge` y `pokemon-skeleton`: skeleton, error con reintento, cierre con Esc y colores del tipo principal. Bottom sheet en móvil.
 - [hooks/use-pokemon-detail.ts](src/hooks/use-pokemon-detail.ts): fetch bajo demanda con caché en memoria por id.
 - [lib/type-colors.ts](src/lib/type-colors.ts): color y nombre en español de cada tipo.
 - Al elegir un marcador, `flyTo` con offset para que el panel no lo tape.
