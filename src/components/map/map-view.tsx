@@ -1,10 +1,21 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Map,
+  NavigationControl,
+  setWorkerUrl,
+  type Map as MapLibreMap,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { PokemonDrawer } from "@/components/pokemon/pokemon-drawer";
 import { usePokemonList } from "@/hooks/use-pokemon-list";
-import type { PokemonPage } from "@/types/pokemon";
+import { spawnPosition } from "@/lib/spawn";
+import type { PokemonListItem, PokemonPage } from "@/types/pokemon";
+import { PokemonMarkers } from "./pokemon-markers";
+
+/** Ancho del panel de detalle; debe coincidir con `.pokemon-drawer` en CSS. */
+const DRAWER_WIDTH = 380;
 
 // MapLibre v6 con bundler: hay que indicar dónde está el worker, una sola vez
 // y antes de crear el Map.
@@ -41,8 +52,27 @@ const ARGENTINA_BOUNDS: [[number, number], [number, number]] = [
 
 export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // La lista llega de a páginas; el spawn (fase 3) consumirá `items`.
+  // La lista llega de a páginas; los marcadores se van sumando a medida que llegan.
   const { items, total, loading, error, retry } = usePokemonList(initialPage);
+  // El mapa se expone por estado (tras `load`) para que los hijos lo usen.
+  const [map, setMap] = useState<MapLibreMap | null>(null);
+  const [selected, setSelected] = useState<PokemonListItem | null>(null);
+  const selectedId = selected?.id ?? null;
+  const closeDrawer = useCallback(() => setSelected(null), []);
+
+  // Selección -> vuelo suave hacia el marcador, con offset para que el panel
+  // (a la derecha en pantallas anchas) no lo tape.
+  useEffect(() => {
+    if (!map || !selected) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.flyTo({
+      center: spawnPosition(selected.id, selected.types),
+      zoom: Math.max(map.getZoom(), 8),
+      offset: window.innerWidth >= 768 ? [-DRAWER_WIDTH / 2, 0] : [0, -120],
+      duration: reduced ? 0 : 1800,
+      essential: false,
+    });
+  }, [map, selected]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -62,6 +92,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
 
     // --- Terreno 3D + atmósfera -------------------------------------------
     map.on("load", () => {
+      setMap(map);
       map.addSource(DEM_SOURCE, {
         type: "raster-dem",
         tiles: [
@@ -267,6 +298,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       });
       canvasContainer.removeEventListener("gesturestart", onGestureStart);
       canvasContainer.removeEventListener("gesturechange", onGestureChange);
+      setMap(null);
       map.remove();
     };
   }, []);
@@ -274,6 +306,15 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      {map && (
+        <PokemonMarkers
+          map={map}
+          items={items}
+          selectedId={selectedId}
+          onSelect={setSelected}
+        />
+      )}
+      <PokemonDrawer selectedId={selectedId} onClose={closeDrawer} />
       <div
         role="status"
         style={{

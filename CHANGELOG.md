@@ -2,6 +2,17 @@
 
 Registro de lo hecho, en orden cronológico inverso.
 
+## Marcadores y panel de detalle
+
+- `GET /api/pokemon/[id]` ([route.ts](src/app/api/pokemon/[id]/route.ts)): tipos, altura, peso, artwork y descripción (español, con fallback a inglés).
+- La lista trae `spriteUrl` armado desde el id (sin requests extra).
+- [lib/spawn.ts](src/lib/spawn.ts): posición determinista por id (PRNG con semilla). Provisorio: recuadro sobre Argentina, sin biomas todavía.
+- [pokemon-markers.tsx](src/components/map/pokemon-markers.tsx): un marcador DOM por Pokémon (sprite + pulso radar), accesible por teclado.
+- [pokemon-drawer.tsx](src/components/pokemon/pokemon-drawer.tsx) + `type-badge`, `pokemon-skeleton`: panel con skeleton, error con reintento, cierre con Esc y animación (respeta `prefers-reduced-motion`).
+- [hooks/use-pokemon-detail.ts](src/hooks/use-pokemon-detail.ts): fetch bajo demanda con caché en memoria por id.
+- [lib/type-colors.ts](src/lib/type-colors.ts): color y nombre en español de cada tipo.
+- Al elegir un marcador, `flyTo` con offset para que el panel no lo tape.
+
 ## Gestos de cámara (mapa)
 
 Implementados en [src/components/map/map-view.tsx](src/components/map/map-view.tsx).
