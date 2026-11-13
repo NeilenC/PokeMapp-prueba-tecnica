@@ -2,6 +2,15 @@
 
 Registro de lo hecho, en orden cronológico inverso.
 
+## Estilo del mapa y zonas visibles
+
+- [lib/map-theme.ts](src/lib/map-theme.ts): paleta propia (tierra cálida, agua y vegetación más saturadas) aplicada con `setPaintProperty` sobre el estilo `liberty`; ignora capas que falten.
+- [lib/map-zones.ts](src/lib/map-zones.ts): las 40 zonas de spawn como halos del color del bioma (bajo el relieve, más tenues al acercarse), contorno punteado y nombre del lugar desde zoom 5,5. El contorno usa la misma fórmula que `spawnPosition`, así coincide con donde caen los marcadores.
+
+- [lib/map-mask.ts](src/lib/map-mask.ts) + [public/geo/neighbors.geojson](public/geo/neighbors.geojson) (Natural Earth 10m simplificado, ~300 KB): máscara oscura al 45 % solo sobre la tierra de Chile, Bolivia, Perú, Brasil, Uruguay y Paraguay. El mar y Malvinas no se tocan (con un contorno grueso la costa quedaba cortada con líneas rectas). Las etiquetas quedan por encima.
+
+- [lib/map-labels.ts](src/lib/map-labels.ts): las etiquetas con "Falkland" o "Malvinas" se muestran como "Malvinas Argentinas" (se envuelve el `text-field` de las capas de texto).
+
 ## Marcadores y panel de detalle
 
 - `GET /api/pokemon/[id]` ([route.ts](src/app/api/pokemon/[id]/route.ts)): tipos, altura, peso, artwork y descripción (español, con fallback a inglés).

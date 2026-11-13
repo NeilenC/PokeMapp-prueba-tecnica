@@ -58,6 +58,7 @@ export async function fetchPokemonPage(
       JSON.stringify(data, null, 2),
     );
   }
+  console.log("DATA: ", data);
   const typesById = await fetchTypesById(signal);
   const items = data.results.map(({ name, url }) => {
     const id = idFromUrl(url);

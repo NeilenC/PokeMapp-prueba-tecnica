@@ -26,7 +26,7 @@ function createMarkerElement(
     e.stopPropagation();
     onSelect(item);
   });
-
+console.log("spawnPosition", spawnPosition)
   const img = document.createElement("img");
   img.src = item.spriteUrl;
   img.alt = "";

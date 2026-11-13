@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Map,
-  NavigationControl,
   setWorkerUrl,
   type Map as MapLibreMap,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { PokemonSheet } from "@/components/pokemon/pokemon-sheet";
 import { usePokemonList } from "@/hooks/use-pokemon-list";
+import { applyPokemonTheme } from "@/lib/map-theme";
+import { applyArgentineLabels } from "@/lib/map-labels";
+import { addNeighborsMask } from "@/lib/map-mask";
+import { addZoneLayers } from "@/lib/map-zones";
 import { spawnPosition } from "@/lib/spawn";
 import type { PokemonListItem, PokemonPage } from "@/types/pokemon";
 import { PokemonMarkers } from "./pokemon-markers";
@@ -53,7 +56,7 @@ const ARGENTINA_BOUNDS: [[number, number], [number, number]] = [
 export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   // La lista llega de a páginas; los marcadores se van sumando a medida que llegan.
-  const { items, total, loading, error, retry } = usePokemonList(initialPage);
+  const { items, error, retry } = usePokemonList(initialPage);
   // El mapa se expone por estado (tras `load`) para que los hijos lo usen.
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [selected, setSelected] = useState<PokemonListItem | null>(null);
@@ -86,9 +89,10 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       pitch: 60,
       maxPitch: 75,
       maxBounds: ARGENTINA_BOUNDS,
+      // La atribución es obligatoria por licencia (OSM/OpenFreeMap): no se
+      // quita, pero queda reducida al botón "i" en vez del texto largo.
+      attributionControl: { compact: true },
     });
-
-    map.addControl(new NavigationControl({ showCompass: true }), "top-right");
 
     // --- Terreno 3D + atmósfera -------------------------------------------
     map.on("load", () => {
@@ -118,6 +122,13 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         },
         firstLabel,
       );
+
+      // Paleta propia y zonas de spawn (halos bajo el relieve, nombres arriba).
+      applyPokemonTheme(map);
+      applyArgentineLabels(map);
+      addZoneLayers(map, "relief-hillshade");
+      // Los países vecinos se atenúan (sobre el relieve, bajo las etiquetas).
+      addNeighborsMask(map, firstLabel);
 
       map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.6 });
       map.setSky({
@@ -315,34 +326,27 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         />
       )}
       <PokemonSheet selectedId={selectedId} onClose={closeDrawer} />
-      <div
-        role="status"
-        style={{
-          position: "absolute",
-          left: 12,
-          bottom: 12,
-          padding: "6px 10px",
-          borderRadius: 8,
-          background: "rgba(15, 23, 42, 0.85)",
-          color: "#e2e8f0",
-          fontSize: 13,
-        }}
-      >
-        {error ? (
-          <>
-            No se pudieron cargar todos los Pokémon.{" "}
-            <button type="button" onClick={retry}>
-              Reintentar
-            </button>
-          </>
-        ) : (
-          <>
-            Pokémon: {items.length}
-            {total ? ` / ${total}` : ""}
-            {loading ? " · cargando…" : ""}
-          </>
-        )}
-      </div>
+      {/* Solo aparece si falla la carga; el progreso normal no se muestra. */}
+      {error && (
+        <div
+          role="alert"
+          style={{
+            position: "absolute",
+            left: 12,
+            bottom: 12,
+            padding: "6px 10px",
+            borderRadius: 8,
+            background: "rgba(15, 23, 42, 0.85)",
+            color: "#e2e8f0",
+            fontSize: 13,
+          }}
+        >
+          No se pudieron cargar todos los Pokémon.{" "}
+          <button type="button" onClick={retry}>
+            Reintentar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
