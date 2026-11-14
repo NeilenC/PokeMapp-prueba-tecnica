@@ -13,7 +13,7 @@ export default async function Home() {
   }
 
   return (
-    <main style={{ height: "100dvh", width: "100%" }}>
+    <main className="h-dvh w-full">
       <MapViewLoader initialPage={initialPage} />
     </main>
   );

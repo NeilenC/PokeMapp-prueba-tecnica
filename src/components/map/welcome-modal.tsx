@@ -1,9 +1,7 @@
 "use client";
 
-import { Press_Start_2P } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
-
-export const arcade = Press_Start_2P({ weight: "400", subsets: ["latin"] });
+import { arcade } from "@/lib/arcade-font";
 
 const GOLD =
   "linear-gradient(135deg,#8a6a00 0%,#f2cf3a 22%,#c9990a 45%,#ffe978 62%,#a67c00 85%,#e9bd1e 100%)";
@@ -18,6 +16,16 @@ function Key({ children }: { children: React.ReactNode }) {
     </kbd>
   );
 }
+
+/** Controles en pantallas táctiles (móvil y tablet). */
+const TOUCH_CONTROLS: { keys: React.ReactNode; text: string }[] = [
+  { keys: <Key>Arrastrar</Key>, text: "Mover el mapa" },
+  { keys: <Key>Pellizcar</Key>, text: "Acercar o alejar" },
+  { keys: <Key>2 dedos ↕</Key>, text: "Inclinar la cámara" },
+  { keys: <Key>Girar</Key>, text: "Rotar con dos dedos" },
+  { keys: <Key>Tocar</Key>, text: "Ver la ficha de un Pokémon" },
+  { keys: <Key>Brújula</Key>, text: "Volver al norte" },
+];
 
 const SHORTCUTS: { keys: React.ReactNode; text: string }[] = [
   {
@@ -79,11 +87,23 @@ export function WelcomeModal({ mode, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     buttonRef.current?.focus();
+    // Al cerrarse otro diálogo (p. ej. "¿Reiniciar el juego?") Radix devuelve el
+    // foco a su botón; se lo recupera para que Enter siga siendo de este popup.
+    const refocus = setTimeout(() => buttonRef.current?.focus(), 150);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape" || e.key === "Enter") {
+        // En captura y con preventDefault: Enter no debe activar el botón que
+        // tenga el foco por detrás (el de reiniciar volvería a pedir confirmación).
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      clearTimeout(refocus);
+      window.removeEventListener("keydown", onKey, true);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- onClose es estable en la práctica
   }, [open]);
 
@@ -92,7 +112,7 @@ export function WelcomeModal({ mode, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center overflow-x-hidden overflow-y-auto bg-black/60 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 grid place-items-center overflow-x-hidden overflow-y-auto bg-black/60 p-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-[2px]"
       onClick={(e) => e.target === e.currentTarget && setOpen(false)}
     >
       <style>{`
@@ -168,7 +188,7 @@ export function WelcomeModal({ mode, onClose }: Props) {
                 <p className="relative text-sm leading-relaxed text-slate-100">
                   {isHelp
                     ? "Un repaso rápido de los controles para moverte por el mapa."
-                    : "Recorré Argentina y descubrí Pokémon de todo el país. Acercate a ellos con el radar, armá tu equipo de expedición y completá tu Pokedex."}
+                    : "Recorré Argentina y descubrí Pokemon de todo el país. Acercate a ellos con el radar, armá tu equipo de expedición y completá tu Pokedex."}
                 </p>
 
                 <h3
@@ -176,21 +196,30 @@ export function WelcomeModal({ mode, onClose }: Props) {
                 >
                   ▶ CONTROLES
                 </h3>
-                <ul className="relative grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                  {SHORTCUTS.map((s) => (
-                    <li key={s.text} className="flex items-center gap-2 text-xs">
-                      <span className="flex shrink-0 items-center gap-1">
-                        {s.keys}
-                      </span>
-                      <span className="text-slate-200">{s.text}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Táctil muestra gestos; con mouse o trackpad, teclado y rueda. */}
+                {[
+                  { items: TOUCH_CONTROLS, cls: "hidden pointer-coarse:grid" },
+                  { items: SHORTCUTS, cls: "grid pointer-coarse:hidden" },
+                ].map(({ items, cls }) => (
+                  <ul
+                    key={cls}
+                    className={`relative gap-x-6 gap-y-2.5 sm:grid-cols-2 ${cls}`}
+                  >
+                    {items.map((s) => (
+                      <li key={s.text} className="flex items-center gap-2 text-xs">
+                        <span className="flex shrink-0 items-center gap-1">
+                          {s.keys}
+                        </span>
+                        <span className="text-slate-200">{s.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ))}
               </div>
             </div>
 
             {/* Pie: botón dorado */}
-            <div className="mt-3 flex items-center flex-row-reverse justify-end gap-3">
+            <div className="mt-3 flex flex-row-reverse items-center justify-end gap-3 max-sm:[&>button]:w-full">
               <span
                 className={`${arcade.className} hidden text-[9px] text-slate-400 sm:inline`}
                 style={{ animation: "welcome-blink 1.2s steps(2) infinite" }}
@@ -201,7 +230,7 @@ export function WelcomeModal({ mode, onClose }: Props) {
                 ref={buttonRef}
                 type="button"
                 onClick={() => setOpen(false)}
-                className={`${arcade.className} -skew-x-12 rounded-sm border-b-4 border-amber-800 px-6 py-2.5 text-[11px] text-slate-900 shadow-lg transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:translate-y-0.5`}
+                className={`${arcade.className} -skew-x-12 rounded-sm border-b-4 border-amber-800 min-h-11 px-6 py-2.5 text-[11px] text-slate-900 shadow-lg transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:translate-y-0.5`}
                 style={{ background: GOLD }}
               >
                 <span className="inline-block skew-x-12">

@@ -17,6 +17,8 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { PokemonSheet } from "@/components/pokemon/pokemon-sheet";
 import { usePokemonList } from "@/hooks/use-pokemon-list";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { COARSE_POINTER_QUERY, sheetFlyOffset } from "@/lib/layout-mode";
 import {
   discover,
   getServerSnapshot as getServerDiscovered,
@@ -55,9 +57,8 @@ import { PokemonMarkers } from "./pokemon-markers";
 import { RadarOverlay } from "./radar-overlay";
 import { WelcomeModal, type GuideMode } from "./welcome-modal";
 import { hasSeenWelcome, markWelcomeSeen } from "@/lib/welcome-seen";
-
-/** Ancho del panel de detalle; debe coincidir con `sm:w-[380px]` en pokemon-sheet.tsx. */
-const DRAWER_WIDTH = 380;
+import { useTutorial } from "@/hooks/use-tutorial";
+import { TUTORIAL_TIPS } from "@/lib/tutorial-tips";
 
 // MapLibre v6 con bundler: hay que indicar dónde está el worker, una sola vez
 // y antes de crear el Map.
@@ -124,6 +125,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     if (getTeam().includes(id)) removeFromTeam(id);
     else addToTeam(id);
   }, []);
+  const showMiniMap = useMediaQuery("(min-width: 640px)");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const visibleIds = useMemo(() => matchingIds(items, filters), [items, filters]);
   const matchCount = useMemo(() => {
@@ -150,6 +152,13 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- storage solo existe en el cliente
     setGuide("welcome");
   }, []);
+  // Mensajes arcade del tutorial: esperan a que se cierre el popup de bienvenida.
+  const tutorialCtx = useMemo(() => ({ teamSize: team.length }), [team.length]);
+  const {
+    active: activeTip,
+    dismiss: dismissTip,
+    reset: resetTutorial,
+  } = useTutorial(TUTORIAL_TIPS, tutorialCtx, guide !== null);
   const [pikachuPeek, setPikachuPeek] = useState(0);
   const lastCompanionCry = useRef(0);
   const handleDiscover = useCallback(
@@ -195,11 +204,13 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     stopCry();
     resetDiscovered();
     resetTeam();
+    resetTutorial();
     setSelected(null);
     setRecent(null);
     setCheer(0);
     setFilters(DEFAULT_FILTERS);
-  }, []);
+    setGuide("welcome");
+  }, [resetTutorial]);
 
   // Selección -> vuelo suave hacia el marcador, con offset para que el panel
   // (a la derecha en pantallas anchas) no lo tape.
@@ -209,7 +220,8 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     map.flyTo({
       center: spawnPosition(selected.id, selected.types),
       zoom: Math.max(map.getZoom(), 8),
-      offset: window.innerWidth >= 640 ? [-DRAWER_WIDTH / 2, 0] : [0, -120],
+      // Vertical si el panel es un bottom sheet, horizontal si es lateral.
+      offset: sheetFlyOffset(),
       duration: reduced ? 0 : 1800,
       essential: false,
     });
@@ -218,21 +230,38 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Táctil (móvil/tablet): menos carga gráfica y sin deriva automática, que
+    // además de gastar batería compite con el gesto del dedo.
+    const coarse = window.matchMedia(COARSE_POINTER_QUERY).matches;
+    const smallScreen = window.innerWidth < 640;
+
     const map = new Map({
       container: containerRef.current,
       style: "https://tiles.openfreemap.org/styles/liberty",
       center: ARGENTINA_CENTER,
-      zoom: 5,
+      // En un teléfono en portrait, zoom 5 muestra solo un tercio del país.
+      zoom: smallScreen ? 4.2 : 5,
       minZoom: 3,
-      pitch: 60,
-      maxPitch: 75,
+      pitch: coarse ? 45 : 60,
+      maxPitch: coarse ? 60 : 75,
+      // Pantallas de 3x pintan 2,25 veces más píxeles que de 2x sin verse mejor.
+      ...(coarse && { pixelRatio: Math.min(window.devicePixelRatio, 2) }),
       maxBounds: ARGENTINA_BOUNDS,
       // La atribución es obligatoria por licencia (OSM/OpenFreeMap): no se
       // quita, pero queda reducida al botón "i" en vez del texto largo.
       attributionControl: { compact: true },
     });
 
-    map.addControl(new NavigationControl({ showCompass: true }), "top-right");
+    // En táctil se hace zoom pellizcando: solo queda la brújula (que también
+    // muestra la inclinación y vuelve al norte con un toque).
+    map.addControl(
+      new NavigationControl({
+        showCompass: true,
+        showZoom: !coarse,
+        visualizePitch: true,
+      }),
+      "top-right",
+    );
 
     // --- Terreno 3D + atmósfera -------------------------------------------
     map.on("load", () => {
@@ -274,7 +303,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       // Los países vecinos se atenúan (sobre el relieve, bajo las etiquetas).
       addNeighborsMask(map, firstLabel);
 
-      map.setTerrain({ source: DEM_SOURCE, exaggeration: 1.6 });
+      map.setTerrain({ source: DEM_SOURCE, exaggeration: coarse ? 1.3 : 1.6 });
       map.setSky({
         "sky-color": "#7ab8f5",
         "horizon-color": "#dbeafe",
@@ -305,7 +334,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     };
     const scheduleDrift = (delay: number) => {
       clearTimeout(resumeTimer);
-      if (!reducedMotion) resumeTimer = setTimeout(startDrift, delay);
+      if (!reducedMotion && !coarse) resumeTimer = setTimeout(startDrift, delay);
     };
 
     const markInteracting = () => {
@@ -417,13 +446,26 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
 
     // Giro con dos dedos: solo Safari (macOS) lo expone, como eventos gesture*.
     // `rotation` es el ángulo acumulado desde gesturestart (horario = positivo).
+    // iOS también dispara gesture* al pellizcar con los dedos sobre la pantalla;
+    // ahí rota MapLibre por su cuenta (touchZoomRotate), y manejarlo dos veces
+    // haría temblar la cámara. Por eso se ignora mientras haya dedos tocando.
+    let activeTouches = 0;
+    const trackTouches = (e: TouchEvent) => {
+      activeTouches = e.touches.length;
+    };
+    canvasContainer.addEventListener("touchstart", trackTouches, { passive: true });
+    canvasContainer.addEventListener("touchend", trackTouches, { passive: true });
+    canvasContainer.addEventListener("touchcancel", trackTouches, { passive: true });
+
     let gestureStartBearing = 0;
     const onGestureStart = (e: Event) => {
+      if (activeTouches > 0) return;
       e.preventDefault();
       markInteracting();
       gestureStartBearing = map.getBearing();
     };
     const onGestureChange = (e: Event) => {
+      if (activeTouches > 0) return;
       e.preventDefault();
       const { rotation } = e as GestureLikeEvent;
       map.jumpTo({ bearing: gestureStartBearing - rotation });
@@ -550,6 +592,9 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
       cancelAnimationFrame(keyFrame);
+      canvasContainer.removeEventListener("touchstart", trackTouches);
+      canvasContainer.removeEventListener("touchend", trackTouches);
+      canvasContainer.removeEventListener("touchcancel", trackTouches);
       canvasContainer.removeEventListener("gesturestart", onGestureStart);
       canvasContainer.removeEventListener("gesturechange", onGestureChange);
       setMap(null);
@@ -558,8 +603,8 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   }, []);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
       {map && (
         <>
           <PokemonMarkers
@@ -584,7 +629,8 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
             moving={moving}
             sheetOpen={selectedId !== null}
           />
-          <MiniMap map={map} sheetOpen={selectedId !== null} />
+          {/* En móvil se omite: un segundo contexto WebGL pesa y ocupa lugar. */}
+          {showMiniMap && <MiniMap map={map} sheetOpen={selectedId !== null} />}
         </>
       )}
       <FiltersPanel
@@ -613,6 +659,8 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         onRemove={removeFromTeam}
         companion={companion}
         onCompanion={setCompanion}
+        tip={activeTip}
+        onTipDismiss={dismissTip}
       />
       <PokemonSheet
         selectedId={selectedId}
@@ -626,19 +674,15 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       {error && (
         <div
           role="alert"
-          style={{
-            position: "absolute",
-            left: 12,
-            bottom: 12,
-            padding: "6px 10px",
-            borderRadius: 8,
-            background: "rgba(15, 23, 42, 0.85)",
-            color: "#e2e8f0",
-            fontSize: 13,
-          }}
+          // Sobre el dock en móvil (el dock ocupa el borde inferior).
+          className="absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] left-3 z-[2] flex max-w-[calc(100%-1.5rem)] items-center gap-3 rounded-lg bg-slate-900/90 py-2 pr-2 pl-3 text-sm text-slate-200 shadow-lg backdrop-blur sm:bottom-3"
         >
-          No se pudieron cargar todos los Pokémon.{" "}
-          <button type="button" onClick={retry}>
+          <span>No se pudieron cargar todos los Pokémon.</span>
+          <button
+            type="button"
+            onClick={retry}
+            className="min-h-11 shrink-0 rounded-md bg-white/10 px-3 font-semibold text-yellow-300 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-yellow-300"
+          >
             Reintentar
           </button>
         </div>

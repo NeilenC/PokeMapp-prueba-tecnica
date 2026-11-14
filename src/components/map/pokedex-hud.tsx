@@ -22,7 +22,8 @@ export function PokedexHud({ recent, onRecentDone }: Props) {
 
   return (
     <>
-      <div className="pointer-events-none absolute top-4 left-1/2 z-[2] -translate-x-1/2">
+      {/* En móvil baja de la fila de botones (arriba a la izquierda) y la brújula. */}
+      <div className="pointer-events-none absolute top-[calc(4.75rem+env(safe-area-inset-top))] left-1/2 z-[2] max-w-[calc(100%-1.5rem)] -translate-x-1/2 sm:top-4">
         <AnimatePresence>
           {recent && (
             <motion.div

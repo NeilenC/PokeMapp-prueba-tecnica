@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { RotateCcw } from "lucide-react";
 import {
   AlertDialog,
@@ -27,6 +28,10 @@ interface Props {
 
 /** Botón para empezar de cero; pide confirmación porque no se puede deshacer. */
 export function ResetGame({ discovered, onReset }: Props) {
+  // Tras confirmar, el foco NO vuelve al botón de reiniciar: si volviera, se
+  // abriría su tooltip y Enter (atajo del popup de bienvenida) lo activaría.
+  const confirmed = useRef(false);
+
   return (
     <AlertDialog>
       <Tooltip>
@@ -46,18 +51,28 @@ export function ResetGame({ discovered, onReset }: Props) {
         <TooltipContent side="bottom">Reiniciar juego</TooltipContent>
       </Tooltip>
 
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={(e) => {
+          if (!confirmed.current) return; // Cancelar: foco al botón como siempre
+          confirmed.current = false;
+          e.preventDefault();
+          (document.activeElement as HTMLElement | null)?.blur();
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>¿Reiniciar el juego?</AlertDialogTitle>
           <AlertDialogDescription>
-            Vas a perder {discovered === 1 ? "el Pokémon descubierto" : `los ${discovered} Pokémon descubiertos`},
-            tu equipo de expedición y tu compañero. Todos vuelven a ser siluetas. Esto no se puede deshacer.
+            Vas a perder {discovered === 1 ? "el Pokemon descubierto" : `los ${discovered} Pokemon descubiertos`},
+            tu equipo de expedición y tu compañero. Esta acción no se puede deshacer.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onReset}
+            onClick={() => {
+              confirmed.current = true;
+              onReset();
+            }}
             className="bg-red-500 text-white hover:bg-red-600"
           >
             Reiniciar

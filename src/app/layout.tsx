@@ -1,5 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+// viewport-fit=cover habilita env(safe-area-inset-*); el teclado virtual
+// achica el viewport (Chrome Android) en vez de tapar el buscador.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: "#0b1020",
+};
 
 export const metadata: Metadata = {
   title: "PokeMapp — Radar Pokémon de Argentina",

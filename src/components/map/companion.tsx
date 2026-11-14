@@ -43,9 +43,12 @@ export function Companion({ id, cheer, moving, sheetOpen }: Props) {
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute right-[140px] bottom-9 z-[1] size-40 transition-[right,opacity] duration-300 sm:right-[160px]",
-        // Sigue al minimapa, que se corre a la izquierda del panel de detalle.
-        sheetOpen && "max-sm:opacity-0 sm:right-[540px]",
+        // Móvil: chico, sobre el dock y a la derecha (sin minimapa). Desde `sm`
+        // vuelve al costado del minimapa, abajo a la derecha.
+        "pointer-events-none absolute right-2 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-[1] size-24 transition-[right,opacity] duration-300 sm:right-[140px] sm:bottom-9 sm:size-32 lg:right-[160px] lg:size-40",
+        // Con bottom sheet se oculta; con drawer lateral sigue al minimapa, que
+        // se corre a la izquierda del panel de detalle.
+        sheetOpen && "sheet-bottom:opacity-0 sheet-side:right-[540px]",
       )}
     >
       <div className="absolute bottom-1 left-1/2 h-3 w-20 -translate-x-1/2 rounded-full bg-black/30 blur-sm" />
