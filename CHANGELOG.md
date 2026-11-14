@@ -2,6 +2,14 @@
 
 Registro de lo hecho, en orden cronológico inverso.
 
+## Clima: niebla y lluvia
+
+- [weather.ts](src/lib/weather.ts): zonas de clima independientes de las de spawn, definidas como unión de círculos con un `weight` (como el spawn, así el borde es orgánico). `LITORAL` (niebla) cubre Misiones, Corrientes (Iberá), Chaco húmedo, Entre Ríos, Santa Fe y el Delta. `LLUVIA` sale del mapa de precipitación anual 1981-2010 del SMN: el color da el peso (violeta/azul oscuro ≈ 0,8–1 en el NEA; azul ≈ 0,6–0,75 en Entre Ríos, Santa Fe y NE bonaerense; celeste ≈ 0,35–0,45 en Pampa central, Córdoba y sur bonaerense; franja azul de la cordillera patagónica ≈ 0,55–0,7). Es una aproximación con círculos, no una réplica del mapa. `weatherAt(map)` toma el centro de la cámara, atenúa por zoom (nada a zoom ≤ 4,5; pleno desde 6) y devuelve `fog`, `rain` y `severity` (se combinan como probabilidades: `1 − (1−fog)(1−rain)`).
+- [weather-overlay.tsx](src/components/map/weather-overlay.tsx): niebla (desenfoque de 3 px, dos manchas de bruma en sentidos opuestos y un velo más claro al centro), cielo cubierto y lluvia en un `canvas` (hasta 320 gotas inclinadas por el viento; se dibujan menos cuanto menos llueve y el bucle de animación se detiene sin lluvia). Opacidades y gotas se escriben por DOM/canvas sin re-render por frame. Cartel único de clima ("Lluvia fuerte" / "Lluvia" / "Niebla del Litoral · radar reducido") con histéresis y región `aria-live`. Reemplaza al antiguo `fog-overlay.tsx`.
+- [radar-overlay.tsx](src/components/map/radar-overlay.tsx): dificultad real: con clima pleno (`severity` = 1) el radar se encoge al 40 % (`WEATHER_RADAR_SHRINK` = 0,6), tanto el dibujo como el alcance de descubrimiento.
+- `prefers-reduced-motion`: la bruma queda quieta y no hay gotas (solo el velo de cielo cubierto).
+- Pendiente: marcar las zonas en el minimapa y sumar nieve en la Patagonia o tormenta eléctrica en la Pampa.
+
 ## Panel de tipos con componentes de shadcn
 
 - Se agregaron `tabs`, `toggle-group`, `badge`, `button`, `scroll-area` y `tooltip` (`src/components/ui/`). La CLI importó `cn` desde un paquete npm homónimo en vez de `@/lib/utils`: se corrigieron los imports y se quitó la dependencia.

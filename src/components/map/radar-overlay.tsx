@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { spawnPosition } from "@/lib/spawn";
+import { weatherAt } from "@/lib/weather";
 import type { PokemonListItem } from "@/types/pokemon";
 
 /** Segundos que tarda el barrido en dar una vuelta completa. */
@@ -17,6 +18,8 @@ const MAX_STEP_DEG = 40;
  */
 const RADAR_MIN_ZOOM = 6.5;
 const RADAR_FADE_START_ZOOM = 6;
+/** Cuánto se encoge el radar con clima pleno (0,6 = queda al 40 %). */
+const WEATHER_RADAR_SHRINK = 0.6;
 /** El marcador se ancla abajo: su centro visual está ~24 px sobre el punto. */
 const MARKER_CENTER_OFFSET_PX = 24;
 
@@ -68,6 +71,7 @@ export function RadarOverlay({ map, items, discovered, onDiscover }: Props) {
     let last = performance.now();
     let frame = 0;
     let shownOpacity = -1;
+    let scale = 1;
 
     const tick = (now: number) => {
       const step = Math.min(((now - last) / SWEEP_PERIOD_MS) * 360, MAX_STEP_DEG);
@@ -94,6 +98,14 @@ export function RadarOverlay({ map, items, discovered, onDiscover }: Props) {
         return;
       }
 
+      // Con niebla o lluvia el radar se encoge: se ve más chico y alcanza menos.
+      const nextScale = 1 - WEATHER_RADAR_SHRINK * weatherAt(map).severity;
+      if (Math.abs(nextScale - scale) > 0.005) {
+        scale = nextScale;
+        ring.style.transform = `scale(${scale})`;
+      }
+      const reach = radius * scale;
+
       const cx = container.clientWidth / 2;
       const cy = container.clientHeight / 2;
       const { items, discovered, onDiscover } = latest.current;
@@ -109,7 +121,7 @@ export function RadarOverlay({ map, items, discovered, onDiscover }: Props) {
         const p = map.project(lngLat);
         const dx = p.x - cx;
         const dy = p.y - MARKER_CENTER_OFFSET_PX - cy;
-        if (dx * dx + dy * dy > radius * radius) continue;
+        if (dx * dx + dy * dy > reach * reach) continue;
 
         if (!reduced) {
           // Ángulo horario desde arriba, igual que la rotación CSS del haz.

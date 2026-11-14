@@ -103,6 +103,25 @@ body {
   filter: brightness(0) opacity(0.45);
 }
 
+/* Niebla del Litoral: manchas de bruma que derivan despacio. */
+.fog-layer {
+  background:
+    radial-gradient(40% 35% at 20% 30%, rgba(241, 245, 249, 0.75), transparent 70%),
+    radial-gradient(45% 40% at 75% 25%, rgba(226, 232, 240, 0.6), transparent 70%),
+    radial-gradient(50% 40% at 55% 75%, rgba(241, 245, 249, 0.7), transparent 70%),
+    radial-gradient(35% 30% at 15% 80%, rgba(226, 232, 240, 0.55), transparent 70%);
+}
+@keyframes fog-drift-a {
+  from { transform: translate3d(-4%, 0, 0); }
+  to { transform: translate3d(4%, 3%, 0); }
+}
+@keyframes fog-drift-b {
+  from { transform: translate3d(5%, 2%, 0) scale(1.1); }
+  to { transform: translate3d(-5%, -2%, 0) scale(1.1); }
+}
+.fog-a { animation: fog-drift-a 38s ease-in-out infinite alternate; }
+.fog-b { animation: fog-drift-b 52s ease-in-out infinite alternate; }
+
 /* Filtros: los descubiertos que no cumplen se apagan y no se pueden tocar. */
 .pokemon-marker {
   transition: opacity 0.25s;
@@ -138,6 +157,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .fog-a, .fog-b { animation: none; }
   .pokemon-marker::before { animation: none; }
   .pokemon-marker.just-discovered,
   .pokemon-marker.just-discovered img { animation: none; }

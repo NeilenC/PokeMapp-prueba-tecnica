@@ -45,6 +45,7 @@ import type { PokemonListItem, PokemonPage } from "@/types/pokemon";
 import { Companion } from "./companion";
 import { ExpeditionDock } from "./expedition-dock";
 import { FiltersPanel } from "./filters-panel";
+import { WeatherOverlay } from "./weather-overlay";
 import { MiniMap } from "./mini-map";
 import { PokedexHud } from "./pokedex-hud";
 import { PokemonMarkers } from "./pokemon-markers";
@@ -444,6 +445,8 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
             visibleIds={visibleIds}
             onSelect={handleSelect}
           />
+          {/* Antes del radar y del compañero: el clima queda debajo de ellos. */}
+          <WeatherOverlay map={map} />
           <RadarOverlay
             map={map}
             items={items}
