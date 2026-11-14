@@ -103,15 +103,6 @@ body {
   filter: brightness(0) opacity(0.45);
 }
 
-/* Compañero: flota suave en el centro de la pantalla. */
-@keyframes companion-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-.companion-float {
-  animation: companion-float 2.6s ease-in-out infinite;
-}
-
 /* Filtros: los descubiertos que no cumplen se apagan y no se pueden tocar. */
 .pokemon-marker {
   transition: opacity 0.25s;
@@ -147,7 +138,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .companion-float { animation: none; }
   .pokemon-marker::before { animation: none; }
   .pokemon-marker.just-discovered,
   .pokemon-marker.just-discovered img { animation: none; }

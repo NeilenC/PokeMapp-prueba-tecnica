@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { playCry } from "@/lib/cry";
+import { SoundToggle } from "./sound-toggle";
 import { DEFAULT_FILTERS, isFiltering, type Filters } from "@/lib/filters";
 import { TEAM_SIZE } from "@/lib/team-store";
 import { typeColor, typeLabel } from "@/lib/type-colors";
@@ -170,40 +171,43 @@ export function FiltersPanel({
   return (
     <TooltipProvider delayDuration={300}>
       <div className="pointer-events-none absolute inset-y-3 left-3 z-[2] flex w-80 max-w-[calc(100vw-24px)] flex-col items-start gap-2 max-lg:pb-[88px]">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-controls={panelId}
-          aria-label={`Pokédex: ${count} de ${total} descubiertos. ${open ? "Cerrar" : "Abrir"} filtros`}
-          className={cn(
-            "pointer-events-auto h-auto shrink-0 rounded-xl py-2 bg-slate-900/85 font-semibold text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
-            active && "ring-2 ring-yellow-300",
-          )}
-        >
-          <ListFilter aria-hidden="true" />
-          {/* Contador de Pokédex: reemplaza al texto del botón. */}
-          <span className="flex w-32 flex-col gap-1 text-left">
-            <span className="flex items-baseline justify-between text-xs">
-              <span className="font-semibold tracking-wide text-yellow-300">
-                POKÉDEX
+        <div className="flex items-stretch gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-controls={panelId}
+            aria-label={`Pokédex: ${count} de ${total} descubiertos. ${open ? "Cerrar" : "Abrir"} filtros`}
+            className={cn(
+              "pointer-events-auto h-auto shrink-0 rounded-xl py-2 bg-slate-900/85 font-semibold text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
+              active && "ring-2 ring-yellow-300",
+            )}
+          >
+            <ListFilter aria-hidden="true" />
+            {/* Contador de Pokédex: reemplaza al texto del botón. */}
+            <span className="flex w-32 flex-col gap-1 text-left">
+              <span className="flex items-baseline justify-between text-xs">
+                <span className="font-semibold tracking-wide text-yellow-300">
+                  POKÉDEX
+                </span>
+                <span className="tabular-nums">
+                  <span className="text-sm font-bold">{count}</span> / {total}
+                </span>
               </span>
-              <span className="tabular-nums">
-                <span className="text-sm font-bold">{count}</span> / {total}
+              <span className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                <span
+                  className="block h-full origin-left rounded-full bg-yellow-300 transition-transform duration-500"
+                  style={{ transform: `scaleX(${progress})` }}
+                />
               </span>
             </span>
-            <span className="h-1.5 overflow-hidden rounded-full bg-white/10">
-              <span
-                className="block h-full origin-left rounded-full bg-yellow-300 transition-transform duration-500"
-                style={{ transform: `scaleX(${progress})` }}
-              />
-            </span>
-          </span>
-          {/* {active && matchCount !== null && (
-            <Badge className="rounded-md px-1.5 tabular-nums">{matchCount}</Badge>
-          )} */}
-        </Button>
+            {/* {active && matchCount !== null && (
+              <Badge className="rounded-md px-1.5 tabular-nums">{matchCount}</Badge>
+            )} */}
+          </Button>
+          <SoundToggle />
+        </div>
 
         <AnimatePresence>
           {open && (

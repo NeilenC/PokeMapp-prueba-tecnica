@@ -5,7 +5,12 @@ const SPRITES_URL =
   "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
 
 export const spriteUrl = (id: number) => `${SPRITES_URL}/${id}.png`;
-export const artworkUrl = (id: number) =>
+/** Sprite animado de frente o de espaldas (GIF); el compañero lo usa al moverse. */
+export const animatedSpriteUrl = (id: number, back = false) =>
+  `${SPRITES_URL}/other/showdown/${back ? "back/" : ""}${id}.gif`;
+/** Sprite estático de espaldas (para quien prefiere menos movimiento). */
+export const backSpriteUrl = (id: number) => `${SPRITES_URL}/back/${id}.png`;
+export const artworkUrl =(id: number) =>
   `${SPRITES_URL}/other/official-artwork/${id}.png`;
 
 /** Solo Gen 1 (ids 1–151): mantiene el mapa liviano (ver SPEC §1). */

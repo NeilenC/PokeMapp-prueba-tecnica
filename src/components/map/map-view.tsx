@@ -59,6 +59,9 @@ setWorkerUrl(
   new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString(),
 );
 
+/** Calma necesaria para que el compañero se dé vuelta y mire de frente. */
+const MOVING_IDLE_MS = 600;
+
 /** Separación mínima entre dos gritos del compañero al descubrir. */
 const COMPANION_CRY_GAP_MS = 1500;
 
@@ -125,6 +128,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   const [recent, setRecent] = useState<PokemonListItem | null>(null);
   // Cada descubrimiento sube `cheer`: el compañero salta de alegría.
   const [cheer, setCheer] = useState(0);
+  const [moving, setMoving] = useState(false);
   const lastCompanionCry = useRef(0);
   const handleDiscover = useCallback(
     (ids: number[]) => {
@@ -400,7 +404,21 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
 
     scheduleDrift(2000);
 
+    // --- ¿La cámara se mueve? (para el compañero) -----------------------------
+    // La deriva automática no cuenta: casi siempre está activa y el compañero
+    // quedaría siempre de espaldas. Sí cuentan arrastrar, zoom, rotar y los
+    // vuelos. Se vuelve a "quieto" tras un rato sin movimiento.
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    const markMoving = () => {
+      if (driftActive) return;
+      setMoving(true);
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => setMoving(false), MOVING_IDLE_MS);
+    };
+    map.on("move", markMoving);
+
     return () => {
+      clearTimeout(idleTimer);
       clearTimeout(resumeTimer);
       cancelAnimationFrame(zoomFrame);
       canvasContainer.removeEventListener("wheel", onWheelCapture, {
@@ -432,7 +450,12 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
             discovered={discovered}
             onDiscover={handleDiscover}
           />
-          <Companion id={companion} cheer={cheer} />
+          <Companion
+            id={companion}
+            cheer={cheer}
+            moving={moving}
+            sheetOpen={selectedId !== null}
+          />
           <MiniMap map={map} sheetOpen={selectedId !== null} />
         </>
       )}
