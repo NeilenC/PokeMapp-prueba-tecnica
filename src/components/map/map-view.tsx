@@ -49,9 +49,12 @@ import { ExpeditionDock } from "./expedition-dock";
 import { FiltersPanel } from "./filters-panel";
 import { WeatherOverlay } from "./weather-overlay";
 import { MiniMap } from "./mini-map";
+import { PikachuPeek } from "./pikachu-peek";
 import { PokedexHud } from "./pokedex-hud";
 import { PokemonMarkers } from "./pokemon-markers";
 import { RadarOverlay } from "./radar-overlay";
+import { WelcomeModal, type GuideMode } from "./welcome-modal";
+import { hasSeenWelcome, markWelcomeSeen } from "@/lib/welcome-seen";
 
 /** Ancho del panel de detalle; debe coincidir con `sm:w-[380px]` en pokemon-sheet.tsx. */
 const DRAWER_WIDTH = 380;
@@ -66,11 +69,17 @@ setWorkerUrl(
 const MOVING_IDLE_MS = 600;
 
 /** Separación mínima entre dos gritos del compañero al descubrir. */
+const PIKACHU_ID = 25;
 const COMPANION_CRY_GAP_MS = 1500;
 
 /** Grados por píxel de scroll al rotar/inclinar con Alt + dos dedos. */
 const ALT_ROTATE_SPEED = 0.3;
 const ALT_PITCH_SPEED = 0.2;
+// Atajos de teclado
+const KEY_ROTATE_DEG_S = 140; // grados por segundo
+const KEY_ZOOM_S = 3.5; // niveles de zoom por segundo
+const KEY_BACK_PX_S = 1100; // píxeles por segundo
+const KEY_SMOOTH_MS = 70; // inercia de aceleración/frenado
 
 /** Constante de tiempo del zoom: más alto = desliza más antes de frenar. */
 const ZOOM_SMOOTH_MS = 140;
@@ -132,12 +141,29 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   // Cada descubrimiento sube `cheer`: el compañero salta de alegría.
   const [cheer, setCheer] = useState(0);
   const [moving, setMoving] = useState(false);
+  // Cerrada al renderizar (SSR/hidratación); la bienvenida se abre solo en la
+  // primera visita, y las instrucciones se vuelven a abrir desde el botón.
+  const [guide, setGuide] = useState<GuideMode | null>(null);
+  useEffect(() => {
+    if (hasSeenWelcome()) return;
+    markWelcomeSeen();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- storage solo existe en el cliente
+    setGuide("welcome");
+  }, []);
+  const [pikachuPeek, setPikachuPeek] = useState(0);
   const lastCompanionCry = useRef(0);
   const handleDiscover = useCallback(
     (ids: number[]) => {
       discover(ids);
       const last = items.find((p) => p.id === ids[ids.length - 1]);
       if (last) setRecent(last);
+
+      // Pikachu asoma desde abajo y suena su grito (pisa al del compañero).
+      if (ids.includes(PIKACHU_ID)) {
+        setPikachuPeek((n) => n + 1);
+        lastCompanionCry.current = performance.now();
+        playCry(PIKACHU_ID);
+      }
 
       const buddy = getCompanion();
       if (buddy === null) return;
@@ -405,6 +431,87 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     canvasContainer.addEventListener("gesturestart", onGestureStart);
     canvasContainer.addEventListener("gesturechange", onGestureChange);
 
+    // --- Atajos de teclado ------------------------------------------------------
+    //  Alt + ← / →  : rotar la cámara
+    //  Alt + ↑ / ↓  : acercar / alejar
+    //  ↓ (sin Alt)  : retroceder la cámara a la misma altura (zoom y pitch fijos)
+    // Mientras la tecla está apretada, un bucle por frame mueve la cámara con
+    // velocidad que acelera y frena suavemente (sin saltos).
+    const pressed = new Set<string>();
+    let altHeld = false;
+    let vRot = 0;
+    let vZoom = 0;
+    let vBack = 0;
+    let keyFrame = 0;
+    let keyLast = 0;
+
+    const dirs = () => ({
+      rot: altHeld
+        ? Number(pressed.has("ArrowRight")) - Number(pressed.has("ArrowLeft"))
+        : 0,
+      zoom: altHeld
+        ? Number(pressed.has("ArrowUp")) - Number(pressed.has("ArrowDown"))
+        : 0,
+      back: !altHeld && pressed.has("ArrowDown") ? 1 : 0,
+    });
+
+    const stepKeys = (now: number) => {
+      const dt = Math.min(now - keyLast, 50);
+      keyLast = now;
+      const d = dirs();
+      const k = 1 - Math.exp(-dt / KEY_SMOOTH_MS);
+      vRot += (d.rot * KEY_ROTATE_DEG_S - vRot) * k;
+      vZoom += (d.zoom * KEY_ZOOM_S - vZoom) * k;
+      vBack += (d.back * KEY_BACK_PX_S - vBack) * k;
+
+      const idle =
+        Math.abs(vRot) < 0.05 && Math.abs(vZoom) < 0.0005 && Math.abs(vBack) < 0.5;
+      if (idle && !d.rot && !d.zoom && !d.back) {
+        vRot = vZoom = vBack = 0;
+        keyFrame = 0;
+        return;
+      }
+      const sec = dt / 1000;
+      if (vRot) map.setBearing(map.getBearing() + vRot * sec);
+      if (vZoom) map.setZoom(map.getZoom() + vZoom * sec);
+      if (vBack) map.panBy([0, vBack * sec], { animate: false });
+      keyFrame = requestAnimationFrame(stepKeys);
+    };
+
+    const startKeys = () => {
+      markInteracting();
+      if (keyFrame) return;
+      keyLast = performance.now();
+      keyFrame = requestAnimationFrame(stepKeys);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
+      )
+        return;
+      if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+      altHeld = e.altKey;
+      if (!/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
+      const d = (pressed.add(e.key), dirs());
+      if (!d.rot && !d.zoom && !d.back) return; // combinación sin atajo
+      e.preventDefault();
+      startKeys();
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      altHeld = e.altKey;
+      pressed.delete(e.key);
+    };
+    const onBlur = () => {
+      pressed.clear();
+      altHeld = false;
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+
     map.on("movestart", () => clearTimeout(resumeTimer));
     map.on("moveend", () => {
       const wasDrift = driftActive;
@@ -439,6 +546,10 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       canvasContainer.removeEventListener("wheel", onWheelCapture, {
         capture: true,
       });
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      cancelAnimationFrame(keyFrame);
       canvasContainer.removeEventListener("gesturestart", onGestureStart);
       canvasContainer.removeEventListener("gesturechange", onGestureChange);
       setMap(null);
@@ -488,6 +599,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         count={discovered.size}
         total={total ?? MAX_POKEMON}
         onReset={handleReset}
+        onHelp={() => setGuide("help")}
       />
       <PokedexHud
         recent={recent}
@@ -508,6 +620,8 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         team={team}
         onToggleTeam={toggleTeam}
       />
+      <PikachuPeek trigger={pikachuPeek} />
+      <WelcomeModal mode={guide} onClose={() => setGuide(null)} />
       {/* Solo aparece si falla la carga; el progreso normal no se muestra. */}
       {error && (
         <div

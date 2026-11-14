@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Star } from "lucide-react";
+import { Star, Volume2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -9,6 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { usePokemonDetail } from "@/hooks/use-pokemon-detail";
+import { playCry } from "@/lib/cry";
 import { TEAM_SIZE } from "@/lib/team-store";
 import { typeColor } from "@/lib/type-colors";
 import { PokemonSkeleton } from "./pokemon-skeleton";
@@ -70,9 +71,18 @@ export function PokemonSheet({ selectedId, onClose, team, onToggleTeam }: Props)
         {detail && (
           <div className="flex flex-col gap-3 p-5 pt-16">
             <div
-              className="rounded-xl border-4 p-2"
+              className="relative rounded-xl border-4 p-2"
               style={{ borderColor: accent, backgroundColor: `${accent}22` }}
             >
+              <button
+                type="button"
+                onClick={() => playCry(detail.id)}
+                aria-label="Escuchar sonido"
+                title="Escuchar sonido"
+                className="absolute right-2 bottom-2 flex size-8 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60 focus-visible:outline-2 focus-visible:outline-yellow-300"
+              >
+                <Volume2 className="size-4" aria-hidden="true" />
+              </button>
               {/* eslint-disable-next-line @next/next/no-img-element -- artwork externo de tamaño fijo */}
               <img
                 src={detail.artworkUrl}

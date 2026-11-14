@@ -25,6 +25,8 @@ export interface SpawnZone {
   /** Radio en grados (~111 km por grado). */
   radius: number;
   types: string[];
+  /** Zona exclusiva: solo estos Pokémon (ids) viven acá y ellos la prefieren. */
+  only?: number[];
 }
 
 // Anclas sobre territorio argentino (hitos reales), no recuadros: así nada cae
@@ -47,6 +49,8 @@ export const SPAWN_ZONES: SpawnZone[] = [
   { id: "rio-negro", name: "Valle del Río Negro (Roca)", region: "Patagonia", center: [-67.7, -39.0], radius: 0.7, types: ["grass", "water", "normal", "bug"] },
   { id: "somuncura", name: "Meseta de Somuncurá", region: "Patagonia", center: [-67.0, -41.5], radius: 1.1, types: ["rock", "steel", "ground", "normal"] },
   { id: "cueva-manos", name: "Cueva de las Manos", region: "Patagonia", center: [-70.7, -47.15], radius: 0.7, types: ["rock", "ghost", "fighting", "normal"] },
+  // Malvinas: mar helado del Atlántico Sur; Dewgong (#087), el "lobo marino".
+  { id: "malvinas", name: "Islas Malvinas Argentinas", region: "Patagonia", center: [-59.0, -51.8], radius: 1.0, types: ["ice", "water"], only: [87] },
   // --- Cuyo: montaña, árido -----------------------------------------------
   { id: "payunia", name: "Payunia (Malargüe)", region: "Cuyo", center: [-69.3, -36.4], radius: 0.7, types: ["fire", "rock", "ground", "steel"] },
   { id: "aconcagua", name: "Cordillera (Aconcagua)", region: "Cuyo", center: [-69.9, -32.65], radius: 0.8, types: ["rock", "fighting", "ground"] },
@@ -145,6 +149,7 @@ function chooseZone(
   const aquatic = isAquatic(types);
   let best: { zone: SpawnZone; value: number } | null = null;
   for (const zone of SPAWN_ZONES) {
+    if (zone.only && !zone.only.includes(id)) continue;
     const common = commonTypes(zone, types);
     const jitter = noise() * 0.05; // desempate reproducible
     // Un acuático solo puede vivir donde hay agua; el resto, en cualquier zona.
@@ -158,6 +163,7 @@ function chooseZone(
     const value =
       common +
       (zone.types.includes(types[0]) ? PRIMARY_BONUS : 0) +
+      (zone.only ? 10 : 0) +
       (used === 0 ? EMPTY_ZONE_BONUS : 0) -
       (LOAD_PENALTY * used) / cap +
       jitter;

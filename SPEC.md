@@ -38,7 +38,7 @@ Aplicación que permite explorar el mundo Pokémon sobre un mapa interactivo de 
 - Caché de respuestas por id para no repetir requests al reseleccionar.
 
 ### 2.3 Animaciones con propósito
-- **Marcadores tipo radar:** pulso concéntrico CSS (color según tipo) que comunica "hay algo acá".
+- **Marcadores tipo radar:** pulso concéntrico (utilidades de Tailwind + `@keyframes` en `globals.css`, color según tipo) que comunica "hay algo acá".
 - **Drawer:** entrada/salida con Framer Motion (slide + fade), con `AnimatePresence`.
 - **Barras de stats:** se llenan de 0 al valor base al abrir el panel (con *stagger*).
 - **Cámara:** `flyTo` con easing, sin saltos bruscos.
@@ -82,9 +82,60 @@ Solo después de cerrar el MVP (§2). Libertad total; estas son las ideas priori
 ## 4. Requisitos no funcionales
 - **TypeScript estricto** (`strict: true`), sin `any` implícitos.
 - **SSR:** el mapa depende de `window`; se carga con `next/dynamic` y `ssr: false`, siempre dentro de un Client Component (`"use client"`). En Server Components (`page.tsx`) `ssr: false` no está permitido, por eso existe `map-view-loader.tsx`. El criterio general de Server vs Client está en la sección 5.1.
-- **Responsive:** en móvil el drawer pasa a *bottom sheet*.
+- **Responsive (mobile, tablet y desktop):** obligatorio y de primera clase, no un "ajuste final". Los estilos se diseñan **mobile-first** con tamaños dinámicos por dispositivo; el detalle completo está en §4.1. En móvil el drawer pasa a *bottom sheet*.
 - **Accesibilidad:** marcadores focuseables con teclado, `aria-label` con el nombre del Pokémon, panel con foco gestionado y cierre con `Esc`.
 - **Performance:** lista inicial ligera, detalle bajo demanda, sprites con tamaño fijo para evitar layout shift.
+
+## 4.1 Responsive: mobile, tablet y desktop
+
+**Principio:** mobile-first. Los estilos base son los de móvil y se amplían con `min-width`. Ningún tamaño crítico se fija en `px` rígidos si puede escalar con el viewport. Toda pantalla se verifica en las tres clases de dispositivo.
+
+### Breakpoints
+
+| Clase | Ancho | Dispositivos de referencia | Layout |
+|---|---|---|---|
+| Mobile | `< 640px` (base) | 360×640, 390×844, 430×932 | Una sola columna; paneles como *bottom sheet*; controles apilados |
+| Tablet | `640px – 1023px` | 768×1024, 820×1180, 1024×768 (landscape) | Paneles laterales parciales o sheet más ancho; controles agrupados en esquinas |
+| Desktop | `≥ 1024px` | 1280×720, 1440×900, 1920×1080 | Drawer lateral derecho fijo; dock, filtros y minimapa en esquinas |
+
+Se mapean a los prefijos de Tailwind y se declaran una sola vez en `@theme` (`--breakpoint-sm: 40rem` para tablet, `--breakpoint-lg: 64rem` para desktop; los valores por defecto de Tailwind ya coinciden: `sm` 640px, `lg` 1024px). **Mobile es el estilo sin prefijo**, tablet se activa con `sm:`/`md:` y desktop con `lg:`; no se escriben `@media` a mano si existe una utilidad equivalente. Se contempla también **orientación** (`landscape:`/`portrait:`) y **dispositivos táctiles** (variante `pointer-coarse:` o `@media (pointer: coarse)` vía `@custom-variant`) además del ancho. Para componentes que dependen de su contenedor y no del viewport (dock, paneles) se usan *container queries* (`@container`, `@sm:`, `@lg:`).
+
+### Tamaños dinámicos
+
+- **Tipografía y espaciado fluidos** con utilidades de Tailwind: valores arbitrarios con `clamp()` (ej. `text-[clamp(0.875rem,0.8rem+0.4vw,1.125rem)]`) o tokens propios declarados en `@theme` (ej. `--text-body`, `--spacing-panel`, `--size-marker`) que se redefinen por breakpoint. Los valores se declaran una vez en el tema y los componentes usan las utilidades, sin números mágicos repetidos.
+- **Marcadores:** tamaño del sprite y del anillo/pulso radar definidos por variable (más chicos en móvil para no saturar el mapa, más grandes en desktop). El área táctil nunca baja de **44×44 px** aunque el sprite sea menor (padding o hit-area extendida).
+- **Alturas con `dvh`/`svh`** en lugar de `vh`, para que la barra del navegador móvil no tape ni desborde el contenido: `h-dvh` en el contenedor del mapa y `max-h-[85dvh]` en el bottom sheet.
+- **Safe areas:** respetar `env(safe-area-inset-*)` (notch, barra de gestos de iOS) en dock, bottom sheet y controles fijos, con valores arbitrarios (`pb-[max(1rem,env(safe-area-inset-bottom))]`); `viewport-fit=cover` en el viewport de `layout.tsx`.
+- **Imágenes y sprites** con dimensiones declaradas (sin layout shift) y `sizes`/`srcset` o `next/image` cuando corresponda; el artwork del drawer escala con el contenedor.
+
+### Comportamiento por componente
+
+| Componente | Mobile | Tablet | Desktop |
+|---|---|---|---|
+| Panel de detalle (drawer) | *Bottom sheet*, alto máximo ~85dvh, con *handle* y gesto de arrastre/cierre | Sheet inferior más ancho y centrado, o panel lateral de ancho acotado | Drawer lateral derecho de ancho fijo/clamp |
+| `flyTo` | Offset **vertical** (el marcador queda en la mitad visible sobre el sheet) | Offset según orientación (vertical en portrait, horizontal en landscape) | Offset **horizontal** (el marcador queda a la izquierda del drawer) |
+| Equipo de Expedición (dock) | Barra inferior compacta, ítems en scroll horizontal si no entran; no tapa el sheet | Dock inferior centrado | Dock flotante con los 6 slots visibles |
+| Filtros / buscador | Colapsados tras un botón; se abren como sheet o modal | Panel colapsable en una esquina | Panel visible en una esquina |
+| Minimapa y overlay de radar | Minimapa reducido u oculto; el radar no compite con los controles | Minimapa chico | Minimapa completo |
+| Compañero y *peek* de Pikachu | Reducidos y posicionados fuera de la zona de pulgar y del sheet | Tamaño intermedio | Tamaño completo |
+| Modales (bienvenida, alertas) | Casi a pantalla completa, scroll interno, botones a ancho completo | Centrados con ancho máximo | Centrados con ancho máximo |
+| Controles del mapa (zoom, sonido) | Esquinas fuera de la zona de pulgar y de la safe area | Esquinas estándar | Esquinas estándar |
+
+### Detalles a tener en cuenta
+
+- **Interacción táctil:** sin dependencia de `hover` (todo lo que se revela con hover tiene equivalente tap/foco); gestos del mapa (pellizcar, arrastrar) no deben chocar con el arrastre del bottom sheet; `touch-action` definido donde haga falta.
+- **Teclado virtual y viewport dinámico:** inputs (buscador) no quedan tapados por el teclado en móvil.
+- **Rendimiento en móvil:** terreno 3D, deriva de cámara y cantidad de marcadores DOM se degradan en pantallas chicas o dispositivos lentos (menos marcadores visibles por zoom/clustering, relieve más suave); medir antes de sumar más (ver §3.5).
+- **Sin scroll horizontal** ni elementos cortados en ningún ancho entre 320px y 1920px; texto legible sin zoom (mínimo 16px en inputs para evitar el zoom automático de iOS).
+- **Solapamientos:** dock, filtros, minimapa, compañero, sheet y modales no se pisan entre sí en ningún breakpoint; se define un orden de apilado (z-index) y zonas reservadas por pantalla.
+- **Orientación:** probar portrait y landscape en móvil y tablet; el layout no se rompe al rotar con un panel abierto.
+- **`prefers-reduced-motion`** y contraste (AA) se mantienen en todos los tamaños (variante `motion-reduce:` de Tailwind).
+- **Convención Tailwind:** mobile-first sin prefijo, luego `sm:`/`md:`/`lg:`; las clases condicionales se componen con `cn()` y variantes con `cva`; los tamaños repetidos suben a tokens de `@theme`; solo se escribe CSS propio (en `globals.css`, dentro de `@layer`) para lo que Tailwind no cubre, como los `@keyframes` del pulso radar y los estilos de MapLibre.
+
+### Cómo se verifica
+
+- Revisión en DevTools con presets 360×640, 390×844, 768×1024, 1024×768, 1440×900 y en dispositivo real al menos para un móvil y una tablet.
+- Cada fase de §8 incluye su chequeo responsive, no solo la fase 6.
 
 ## 5. Stack
 
@@ -94,7 +145,8 @@ Solo después de cerrar el MVP (§2). Libertad total; estas son las ideas priori
 | Lenguaje | TypeScript 5.9 |
 | Mapa | `maplibre-gl` 6.x + OpenFreeMap (solo exports con nombre: `import { Map } from "maplibre-gl"`) |
 | Animación | `framer-motion` + CSS |
-| Estilos | CSS Modules + CSS global (sin Tailwind) |
+| Estilos | **Tailwind CSS v4** en todo el proyecto (utilidades en `className`, tema en `@theme` dentro de `globals.css`). Sin CSS Modules ni CSS suelto por componente |
+| Componentes UI | shadcn/ui (`src/components/ui`) con `class-variance-authority`, `clsx` y `tailwind-merge` (helper `cn`) |
 | Datos | `fetch` + caché en memoria (hook propio) |
 | Package manager | pnpm 9.14.4 |
 
@@ -144,7 +196,7 @@ src/
   app/
     layout.tsx              # [hecho] root layout, metadata, lang="es"
     page.tsx                # [hecho] renderiza MapViewLoader
-    globals.css             # [hecho] tema oscuro, pantalla completa
+    globals.css             # [hecho] `@import "tailwindcss"`, `@theme` (tokens, breakpoints), keyframes del radar, tema oscuro
   components/
     map/
       map-view-loader.tsx   # [hecho] Client Component: dynamic + ssr:false
@@ -201,7 +253,7 @@ interface PokemonDetail extends SpawnedPokemon {
 3. **Spawn:** `spawn.ts` con regiones y PRNG determinista; renderizado de marcadores con sprites.
 4. **Detalle:** `pokeapi.ts`, hook con caché, drawer con skeletons y estado de error.
 5. **Animaciones:** pulso radar, transiciones del drawer, barras de stats, `flyTo`, reduced-motion.
-6. **Pulido:** responsive (bottom sheet), accesibilidad, README con las decisiones de diseño.
+6. **Pulido:** responsive completo (mobile, tablet, desktop según §4.1), accesibilidad, README con las decisiones de diseño. Nota: el responsive se aplica desde la fase 2 en adelante en cada componente; esta fase solo lo audita y corrige.
 
 ## 9. Criterios de aceptación
 
@@ -212,6 +264,10 @@ interface PokemonDetail extends SpawnedPokemon {
 - [ ] El panel muestra skeleton mientras carga y mensaje de error con reintento si falla la red.
 - [ ] Las barras de stats se animan al abrir el panel.
 - [ ] Funciona en móvil y con `prefers-reduced-motion` activo.
+- [ ] Mobile (360–430px), tablet (768–1024px, portrait y landscape) y desktop (≥1280px) se ven correctos: sin scroll horizontal, sin solapamiento entre paneles y con áreas táctiles ≥ 44px.
+- [ ] Todo el estilado usa Tailwind (sin CSS Modules ni estilos inline salvo valores dinámicos como el color de tipo).
+- [ ] Tamaños fluidos (`clamp`/tokens de `@theme`) y alturas con `dvh`; respeta safe areas en dispositivos con notch.
+- [ ] El `flyTo` deja el marcador visible según el layout del dispositivo (offset vertical en bottom sheet, horizontal en drawer lateral).
 - [ ] `pnpm build` y `pnpm lint` pasan sin errores.
 
 ## 10. Criterios de evaluación y ponderación
@@ -220,7 +276,7 @@ Estos criterios aplican a **toda la app** y guían cada decisión de diseño e i
 
 | Criterio | Peso | Qué observamos |
 |---|---|---|
-| Sensibilidad visual, UX y creatividad | 35% | Buen gusto estético, diseño responsive (mobile y desktop), coherencia de diseño y originalidad. |
+| Sensibilidad visual, UX y creatividad | 35% | Buen gusto estético, diseño responsive (mobile, tablet y desktop), coherencia de diseño y originalidad. |
 | Fluidez del mapa e interacciones | 25% | Navegación suave, animaciones con sentido, transiciones de cámara sin bloqueos. |
 | Calidad de código y arquitectura Next.js | 25% | Código limpio, TypeScript estricto (sin `any`), separación clara Server vs Client Components. |
 | Criterio de uso de IA y documentación | 15% | Honestidad, espíritu crítico para auditar código generado por IA y claridad del README. |

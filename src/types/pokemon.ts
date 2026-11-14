@@ -35,7 +35,7 @@ export interface PokemonDetail {
   /** Las 6 estadísticas base, en el orden de PokéAPI (PS … Velocidad). */
   stats: PokemonStat[];
   artworkUrl: string;
-  /** Texto del Pokédex sin saltos raros; `null` si no hay en es ni en en. */
+  /** Texto del Pokedex sin saltos raros; `null` si no hay en es ni en en. */
   description: string | null;
   descriptionLang: "es" | "en" | null;
 }

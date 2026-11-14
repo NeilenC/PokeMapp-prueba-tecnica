@@ -42,7 +42,7 @@ export function PokedexHud({ recent, onRecentDone }: Props) {
                 className="size-9 rounded-full bg-white/10 [image-rendering:pixelated]"
               />
               <span>
-                <span className="text-xs text-yellow-300">¡Nuevo en la Pokédex!</span>
+                <span className="text-xs text-yellow-300">¡Nuevo en la Pokedex!</span>
                 <br />
                 <span className="font-semibold capitalize">{recent.name}</span>
               </span>

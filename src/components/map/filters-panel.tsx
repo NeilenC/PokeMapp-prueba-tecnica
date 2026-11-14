@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ListFilter, MapPin, Star, X } from "lucide-react";
+import { ListFilter, MapPin, Search, Star, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { HelpButton } from "./help-button";
 import { ResetGame } from "./reset-game";
 import { SoundToggle } from "./sound-toggle";
 import { DEFAULT_FILTERS, isFiltering, type Filters } from "@/lib/filters";
@@ -39,11 +40,13 @@ interface Props {
   onToggleTeam: (id: number) => void;
   /** Cuántos de los descubiertos cumplen los filtros (o `null` sin filtros). */
   matchCount: number | null;
-  /** Progreso de la Pokédex que se muestra en el botón. */
+  /** Progreso de la Pokedex que se muestra en el botón. */
   count: number;
   total: number;
   /** Reinicia el juego (ya confirmado por el usuario). */
   onReset: () => void;
+  /** Abre el popup con los controles. */
+  onHelp: () => void;
 }
 
 interface Group {
@@ -55,6 +58,10 @@ interface Group {
 }
 
 type View = "all" | "found" | "missing";
+
+/** Minúsculas y sin acentos, para comparar texto del buscador. */
+const normalize = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const VIEWS: { key: View; label: string }[] = [
   { key: "all", label: "Todos" },
@@ -119,28 +126,43 @@ export function FiltersPanel({
   count,
   total,
   onReset,
+  onHelp,
 }: Props) {
   const [open, setOpen] = useState(false);
   const progress = total > 0 ? Math.min(count / total, 1) : 0;
   const [playing, setPlaying] = useState<number | null>(null);
   const [view, setView] = useState<View>("all");
+  const [query, setQuery] = useState("");
+  const needle = normalize(query.trim());
   const panelId = useId();
   const active = isFiltering(filters);
   const teamFull = team.length >= TEAM_SIZE;
 
-  // Un Pokémon de dos tipos aparece en ambas secciones. El contador de cada
-  // sección es "descubiertos / total del tipo" y no cambia con el selector
-  // Todos/Tengo/Faltan, que solo decide qué filas se listan.
+  // Cada Pokémon vive en UNA sola sección (aunque tenga dos tipos), así las
+  // secciones suman exactamente el total. Va en su tipo principal, o en el
+  // primero de sus tipos que esté seleccionado en el filtro. El contador de
+  // cada sección es "descubiertos / total" y no cambia con Todos/Tengo/Faltan,
+  // que solo decide qué filas se listan.
   const groups = useMemo<Group[]>(() => {
     const result: Group[] = [];
+    const sectionOf = (p: PokemonListItem) =>
+      filters.types.size > 0
+        ? p.types.find((t) => filters.types.has(t))
+        : p.types[0];
     for (const type of TYPES) {
       if (filters.types.size > 0 && !filters.types.has(type)) continue;
-      const all = items.filter((p) => p.types.includes(type));
+      const all = items.filter((p) => sectionOf(p) === type);
       if (all.length === 0) continue;
-      const members =
+      let members =
         view === "all"
           ? all
           : all.filter((p) => discovered.has(p.id) === (view === "found"));
+      // El buscador solo mira entre los descubiertos (los demás son "???").
+      if (needle) {
+        members = members.filter(
+          (p) => discovered.has(p.id) && normalize(p.name).includes(needle),
+        );
+      }
       if (members.length === 0) continue;
       result.push({
         type,
@@ -150,7 +172,7 @@ export function FiltersPanel({
       });
     }
     return result;
-  }, [items, discovered, filters.types, view]);
+  }, [items, discovered, filters.types, view, needle]);
 
   // Conteo de Pokémon distintos (no por sección) dentro del filtro de tipo.
   const counts = useMemo(() => {
@@ -182,18 +204,18 @@ export function FiltersPanel({
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls={panelId}
-            aria-label={`Pokédex: ${count} de ${total} descubiertos. ${open ? "Cerrar" : "Abrir"} filtros`}
+            aria-label={`Pokedex: ${count} de ${total} descubiertos. ${open ? "Cerrar" : "Abrir"} filtros`}
             className={cn(
               "pointer-events-auto h-auto shrink-0 rounded-xl py-2 bg-slate-900/85 font-semibold text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
               active && "ring-2 ring-yellow-300",
             )}
           >
             <ListFilter aria-hidden="true" />
-            {/* Contador de Pokédex: reemplaza al texto del botón. */}
+            {/* Contador de Pokedex: reemplaza al texto del botón. */}
             <span className="flex w-32 flex-col gap-1 text-left">
               <span className="flex items-baseline justify-between text-xs">
                 <span className="font-semibold tracking-wide text-yellow-300">
-                  POKÉDEX
+                  POKEDEX
                 </span>
                 <span className="tabular-nums">
                   <span className="text-sm font-bold">{count}</span> / {total}
@@ -210,6 +232,7 @@ export function FiltersPanel({
               <Badge className="rounded-md px-1.5 tabular-nums">{matchCount}</Badge>
             )} */}
           </Button>
+          <HelpButton onClick={onHelp} />
           <SoundToggle />
           <ResetGame discovered={count} onReset={onReset} />
         </div>
@@ -218,7 +241,7 @@ export function FiltersPanel({
           {open && (
             <motion.section
               id={panelId}
-              aria-label="Pokédex"
+              aria-label="Pokedex"
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -16 }}
@@ -279,6 +302,21 @@ export function FiltersPanel({
                 </ToggleGroup>
               </div>
 
+              <div className="relative shrink-0 px-3 pt-2">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-5 mt-1 size-3.5 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar entre mis Pokémon"
+                  aria-label="Buscar Pokémon descubierto"
+                  className="h-8 w-full rounded-md border border-white/10 bg-white/[0.06] pr-2 pl-8 text-xs text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-yellow-300"
+                />
+              </div>
+
               <Tabs
                 value={view}
                 onValueChange={(v) => setView(v as View)}
@@ -311,7 +349,9 @@ export function FiltersPanel({
                   <ScrollArea className="h-full">
                     {groups.length === 0 && (
                       <p className="p-4 text-center text-sm text-slate-400">
-                        {view === "missing"
+                        {needle
+                          ? "Pokémon no encontrado"
+                          : view === "missing"
                           ? "¡No te falta ninguno!"
                           : view === "found"
                             ? "Todavía no descubriste ninguno."

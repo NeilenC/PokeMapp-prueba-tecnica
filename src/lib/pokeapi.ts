@@ -144,7 +144,7 @@ interface PokeApiSpecies {
   }[];
 }
 
-/** Los textos del Pokédex traen \n, \f y guiones blandos: se normalizan. */
+/** Los textos del Pokedex traen \n, \f y guiones blandos: se normalizan. */
 function cleanFlavorText(text: string): string {
   return text.replace(/[\n\f\r\u00ad]+/g, " ").replace(/\s+/g, " ").trim();
 }
