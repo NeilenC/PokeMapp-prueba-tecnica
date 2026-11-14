@@ -2,6 +2,19 @@
 
 Registro de lo hecho, en orden cronológico inverso.
 
+## Panel de tipos con componentes de shadcn
+
+- Se agregaron `tabs`, `toggle-group`, `badge`, `button`, `scroll-area` y `tooltip` (`src/components/ui/`). La CLI importó `cn` desde un paquete npm homónimo en vez de `@/lib/utils`: se corrigieron los imports y se quitó la dependencia.
+- [globals.css](src/app/globals.css): se completaron los tokens que esperan los componentes (`muted`, `accent`, `input`, `primary`, `destructive`) con la paleta oscura del proyecto.
+- [filters-panel.tsx](src/components/map/filters-panel.tsx): tipos como `ToggleGroup` en grilla de 4 columnas (barra lateral con el color del tipo, fondo lleno al activarse) en lugar de píldoras; Todos/Tengo/Faltan como `Tabs` con `Badge` (antes "Descubiertos" se partía en dos líneas); "Limpiar filtros" pasó a un botón chico en el encabezado, visible solo con filtros activos; `ScrollArea` en vez de la barra nativa; `Tooltip` en estrella y pin (también cuando la estrella está deshabilitada).
+
+## Equipo de expedición
+
+- [team-store.ts](src/lib/team-store.ts): hasta 6 favoritos en orden de incorporación, persistidos en `localStorage` (`pokemapp:team:v1`) con el mismo patrón que `discovered-store` (`useSyncExternalStore`, lectura solo en cliente, sin errores si el storage está bloqueado).
+- [expedition-dock.tsx](src/components/map/expedition-dock.tsx): dock abajo al centro con los 6 espacios. Click en un Pokémon = abrir detalle, volar hasta él y su grito; la "x" lo quita. Se centra en el espacio libre cuando el panel de detalle está abierto y se oculta en móvil mientras lo está.
+- **Compañero activo** (`pokemapp:companion:v1`): uno del equipo, elegido con el corazón del dock (el primero que se suma lo es por defecto; al quitarlo del equipo se libera). [companion.tsx](src/components/map/companion.tsx) lo dibuja flotando en el centro de la pantalla, sobre el radar, sin interceptar clicks. Al descubrir da un salto y suena su grito: uno por tanda, como mucho cada 1,5 s y sin cortar otro grito que ya esté sonando (`isCryPlaying`). Con `prefers-reduced-motion` no flota ni salta.
+- Se agrega/quita con la estrella en la lista por tipo y con el botón del panel de detalle. Solo se pueden sumar descubiertos; con el equipo lleno los botones de agregar se deshabilitan.
+
 ## Minimapa, gritos y explorador por tipo
 
 - [mini-map.tsx](src/components/map/mini-map.tsx): minimapa plano de Argentina abajo a la derecha, con el área visible del mapa principal (recuadro) y un punto en el centro de la cámara. Segundo `Map` de MapLibre, no interactivo; el click lleva la cámara principal hasta ese punto. El borde superior del recuadro se toma al 40 % de la altura porque con pitch alto la parte de arriba es cielo y `unproject` da valores absurdos. Se corre a la izquierda del panel de detalle y se oculta en móvil mientras está abierto.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Star } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -8,6 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { usePokemonDetail } from "@/hooks/use-pokemon-detail";
+import { TEAM_SIZE } from "@/lib/team-store";
 import { typeColor } from "@/lib/type-colors";
 import { PokemonSkeleton } from "./pokemon-skeleton";
 import { StatBar } from "./stat-bar";
@@ -17,13 +19,16 @@ interface Props {
   /** Id del Pokémon abierto; `null` = panel cerrado. */
   selectedId: number | null;
   onClose: () => void;
+  /** Ids del equipo de expedición y alternador (suma o quita). */
+  team: readonly number[];
+  onToggleTeam: (id: number) => void;
 }
 
 /**
  * Panel de detalle (shadcn Sheet). No es modal: sin overlay y sin cerrarse al
  * tocar afuera, para que el mapa siga usable mientras está abierto.
  */
-export function PokemonSheet({ selectedId, onClose }: Props) {
+export function PokemonSheet({ selectedId, onClose, team, onToggleTeam }: Props) {
   // Recordamos el último id para que el contenido no desaparezca mientras
   // el panel hace la animación de salida.
   const [shownId, setShownId] = useState(selectedId);
@@ -50,7 +55,7 @@ export function PokemonSheet({ selectedId, onClose }: Props) {
         {status === "loading" && <PokemonSkeleton />}
 
         {status === "error" && (
-          <div role="alert" className="flex flex-col items-start gap-3 p-5 pt-12">
+          <div role="alert" className="flex flex-col items-start gap-3 p-5 pt-16">
             <p>No se pudo cargar el Pokémon ({error}).</p>
             <button
               type="button"
@@ -63,7 +68,7 @@ export function PokemonSheet({ selectedId, onClose }: Props) {
         )}
 
         {detail && (
-          <div className="flex flex-col gap-3 p-5 pt-10">
+          <div className="flex flex-col gap-3 p-5 pt-16">
             <div
               className="rounded-xl border-4 p-2"
               style={{ borderColor: accent, backgroundColor: `${accent}22` }}
@@ -90,6 +95,31 @@ export function PokemonSheet({ selectedId, onClose }: Props) {
                 <TypeBadge key={t} type={t} />
               ))}
             </div>
+
+            {(() => {
+              const inTeam = team.includes(detail.id);
+              const full = !inTeam && team.length >= TEAM_SIZE;
+              return (
+                <button
+                  type="button"
+                  onClick={() => onToggleTeam(detail.id)}
+                  disabled={full}
+                  aria-pressed={inTeam}
+                  className="flex items-center justify-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-yellow-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white/10"
+                >
+                  <Star
+                    className={inTeam ? "size-4 text-yellow-300" : "size-4"}
+                    fill={inTeam ? "currentColor" : "none"}
+                    aria-hidden="true"
+                  />
+                  {inTeam
+                    ? "Quitar del equipo"
+                    : full
+                      ? `Equipo completo (${TEAM_SIZE}/${TEAM_SIZE})`
+                      : "Agregar al equipo"}
+                </button>
+              );
+            })()}
 
             {detail.description && (
               <p lang={detail.descriptionLang ?? undefined} className="text-sm leading-relaxed">

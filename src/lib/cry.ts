@@ -20,6 +20,11 @@ export function setCriesMuted(value: boolean) {
   if (muted) stopCry();
 }
 
+/** ¿Hay un grito sonando ahora mismo? */
+export function isCryPlaying(): boolean {
+  return player !== null && !player.paused && !player.ended;
+}
+
 export function stopCry() {
   player?.pause();
 }

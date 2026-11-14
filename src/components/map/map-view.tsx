@@ -23,15 +23,27 @@ import {
   getSnapshot as getDiscovered,
   subscribe as subscribeDiscovered,
 } from "@/lib/discovered-store";
-import { playCry } from "@/lib/cry";
+import { isCryPlaying, playCry } from "@/lib/cry";
 import { DEFAULT_FILTERS, matchingIds, type Filters } from "@/lib/filters";
 import { MAX_POKEMON } from "@/lib/pokeapi";
+import {
+  addToTeam,
+  getCompanionSnapshot as getCompanion,
+  getServerCompanionSnapshot as getServerCompanion,
+  setCompanion,
+  getServerSnapshot as getServerTeam,
+  getSnapshot as getTeam,
+  removeFromTeam,
+  subscribe as subscribeTeam,
+} from "@/lib/team-store";
 import { applyPokemonTheme } from "@/lib/map-theme";
 import { applyArgentineLabels } from "@/lib/map-labels";
 import { addNeighborsMask } from "@/lib/map-mask";
 import { addZoneLayers } from "@/lib/map-zones";
 import { spawnPosition } from "@/lib/spawn";
 import type { PokemonListItem, PokemonPage } from "@/types/pokemon";
+import { Companion } from "./companion";
+import { ExpeditionDock } from "./expedition-dock";
 import { FiltersPanel } from "./filters-panel";
 import { MiniMap } from "./mini-map";
 import { PokedexHud } from "./pokedex-hud";
@@ -46,6 +58,9 @@ const DRAWER_WIDTH = 380;
 setWorkerUrl(
   new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString(),
 );
+
+/** Separación mínima entre dos gritos del compañero al descubrir. */
+const COMPANION_CRY_GAP_MS = 1500;
 
 /** Grados por píxel de scroll al rotar/inclinar con Alt + dos dedos. */
 const ALT_ROTATE_SPEED = 0.3;
@@ -84,6 +99,16 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     getDiscovered,
     getServerDiscovered,
   );
+  // Equipo de expedición: también persiste en localStorage.
+  const team = useSyncExternalStore(
+    subscribeTeam,
+    getTeam,
+    getServerTeam,
+  );
+  const toggleTeam = useCallback((id: number) => {
+    if (getTeam().includes(id)) removeFromTeam(id);
+    else addToTeam(id);
+  }, []);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const visibleIds = useMemo(() => matchingIds(items, filters), [items, filters]);
   const matchCount = useMemo(() => {
@@ -92,12 +117,31 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     for (const id of visibleIds) if (discovered.has(id)) n++;
     return n;
   }, [visibleIds, discovered]);
+  const companion = useSyncExternalStore(
+    subscribeTeam,
+    getCompanion,
+    getServerCompanion,
+  );
   const [recent, setRecent] = useState<PokemonListItem | null>(null);
+  // Cada descubrimiento sube `cheer`: el compañero salta de alegría.
+  const [cheer, setCheer] = useState(0);
+  const lastCompanionCry = useRef(0);
   const handleDiscover = useCallback(
     (ids: number[]) => {
       discover(ids);
       const last = items.find((p) => p.id === ids[ids.length - 1]);
       if (last) setRecent(last);
+
+      const buddy = getCompanion();
+      if (buddy === null) return;
+      setCheer((n) => n + 1);
+      // Un solo grito por tanda y como mucho uno cada 1,5 s; si ya suena
+      // otro (p. ej. uno que elegiste vos), no se lo corta.
+      const now = performance.now();
+      if (now - lastCompanionCry.current < COMPANION_CRY_GAP_MS) return;
+      if (isCryPlaying()) return;
+      lastCompanionCry.current = now;
+      playCry(buddy);
     },
     [items],
   );
@@ -388,6 +432,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
             discovered={discovered}
             onDiscover={handleDiscover}
           />
+          <Companion id={companion} cheer={cheer} />
           <MiniMap map={map} sheetOpen={selectedId !== null} />
         </>
       )}
@@ -395,17 +440,33 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         items={items}
         discovered={discovered}
         onLocate={handleSelect}
+        team={team}
+        onToggleTeam={toggleTeam}
         filters={filters}
         onChange={setFilters}
         matchCount={matchCount}
-      />
-      <PokedexHud
         count={discovered.size}
         total={total ?? MAX_POKEMON}
+      />
+      <PokedexHud
         recent={recent}
         onRecentDone={clearRecent}
       />
-      <PokemonSheet selectedId={selectedId} onClose={closeDrawer} />
+      <ExpeditionDock
+        team={team}
+        items={items}
+        sheetOpen={selectedId !== null}
+        onLocate={handleSelect}
+        onRemove={removeFromTeam}
+        companion={companion}
+        onCompanion={setCompanion}
+      />
+      <PokemonSheet
+        selectedId={selectedId}
+        onClose={closeDrawer}
+        team={team}
+        onToggleTeam={toggleTeam}
+      />
       {/* Solo aparece si falla la carga; el progreso normal no se muestra. */}
       {error && (
         <div
@@ -413,7 +474,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
           style={{
             position: "absolute",
             left: 12,
-            bottom: 72, // sobre el contador de Pokédex
+            bottom: 12,
             padding: "6px 10px",
             borderRadius: 8,
             background: "rgba(15, 23, 42, 0.85)",
