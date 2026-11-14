@@ -6,7 +6,9 @@ import { Heart, Plus, X } from "lucide-react";
 import { spriteUrl } from "@/lib/pokeapi";
 import { TEAM_SIZE } from "@/lib/team-store";
 import { typeColor } from "@/lib/type-colors";
+import type { TutorialTipDef } from "@/lib/tutorial-tips";
 import { cn } from "@/lib/utils";
+import { TutorialTip } from "./tutorial-tip";
 import type { PokemonListItem } from "@/types/pokemon";
 
 interface Props {
@@ -21,6 +23,9 @@ interface Props {
   /** Compañero activo (uno del equipo) y cómo cambiarlo. */
   companion: number | null;
   onCompanion: (id: number | null) => void;
+  /** Mensaje del tutorial activo (o `null`) y cómo cerrarlo. */
+  tip: TutorialTipDef | null;
+  onTipDismiss: (id: string) => void;
 }
 
 /** Dock con los 6 espacios del equipo de expedición, abajo al centro. */
@@ -32,18 +37,36 @@ export function ExpeditionDock({
   onRemove,
   companion,
   onCompanion,
+  tip,
+  onTipDismiss,
 }: Props) {
+  // El mensaje que explica el corazón resalta el del primer favorito.
+  const heartTip = tip?.anchor === "dock-first-heart";
   const byId = useMemo(() => new Map(items.map((p) => [p.id, p])), [items]);
 
   return (
     <section
       aria-label={`Equipo de expedición, ${team.length} de ${TEAM_SIZE}`}
       className={cn(
-        "absolute bottom-3 left-1/2 z-[1] flex -translate-x-1/2 flex-col items-center gap-1 rounded-2xl bg-slate-900/85 px-2.5 pt-1.5 pb-2 shadow-lg backdrop-blur transition-[left,opacity] duration-300",
-        // El panel de detalle mide 380 px: el dock se centra en lo que queda.
-        sheetOpen && "max-sm:pointer-events-none max-sm:opacity-0 sm:left-[calc(50%-190px)]",
+        "absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-[1] flex max-w-[calc(100%-1rem)] -translate-x-1/2 flex-col items-center gap-1 rounded-2xl bg-slate-900/85 px-2.5 pt-1.5 pb-2 shadow-lg backdrop-blur transition-[left,opacity] duration-300",
+        // Con bottom sheet el dock se oculta (el sheet ocupa ese borde); con
+        // drawer lateral (380 px) se centra en lo que queda libre.
+        sheetOpen &&
+          "sheet-bottom:pointer-events-none sheet-bottom:opacity-0 sheet-side:left-[calc(50%-190px)]",
       )}
     >
+      <TutorialTip
+        tip={tip}
+        anchor="dock-title"
+        onDismiss={onTipDismiss}
+        className="absolute bottom-full left-1/2 mb-4 -translate-x-1/2"
+      />
+      <TutorialTip
+        tip={tip}
+        anchor="dock-first-heart"
+        onDismiss={onTipDismiss}
+        className="absolute bottom-full left-0 mb-4"
+      />
       <h2 className="text-[10px] font-semibold tracking-wide text-yellow-300">
         EQUIPO{" "}
         <span className="tabular-nums text-slate-300">
@@ -101,13 +124,16 @@ export function ExpeditionDock({
                     type="button"
                     onClick={() => onRemove(id)}
                     aria-label={`Quitar a ${item?.name ?? "Pokémon"} del equipo`}
-                    className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-slate-950 text-slate-300 ring-1 ring-white/30 hover:text-white focus-visible:outline-2 focus-visible:outline-yellow-300"
+                    className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-slate-950 p-0 leading-none text-slate-300 ring-1 ring-white/30 after:absolute after:-inset-1 after:content-[''] pointer-coarse:size-6 pointer-coarse:after:-inset-2.5 hover:text-white focus-visible:outline-2 focus-visible:outline-yellow-300"
                   >
-                    <X className="size-3" aria-hidden="true" />
+                    <X className="block size-3" aria-hidden="true" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => onCompanion(companion === id ? null : id)}
+                    onClick={() => {
+                      if (tip && heartTip) onTipDismiss(tip.id);
+                      onCompanion(companion === id ? null : id);
+                    }}
                     aria-pressed={companion === id}
                     aria-label={
                       companion === id
@@ -116,14 +142,18 @@ export function ExpeditionDock({
                     }
                     title={companion === id ? "Tu compañero" : "Elegir como compañero"}
                     className={cn(
-                      "absolute -bottom-1 -left-1 grid size-4 place-items-center rounded-full bg-slate-950 ring-1 ring-white/30 focus-visible:outline-2 focus-visible:outline-yellow-300",
+                      "absolute -bottom-1.5 -left-1.5 flex size-5 items-center justify-center rounded-full bg-slate-950 p-0 leading-none ring-1 ring-white/30 after:absolute after:-inset-1 after:content-[''] pointer-coarse:size-6 pointer-coarse:after:-inset-2.5 focus-visible:outline-2 focus-visible:outline-yellow-300",
+                      // Mientras el mensaje explica el corazón, se resalta el del primer favorito.
+                      heartTip &&
+                        i === 0 &&
+                        "ring-2 ring-yellow-300 motion-safe:animate-pulse",
                       companion === id
                         ? "text-pink-400"
                         : "text-slate-400 hover:text-pink-300",
                     )}
                   >
                     <Heart
-                      className="size-3"
+                      className="block size-3"
                       fill={companion === id ? "currentColor" : "none"}
                       aria-hidden="true"
                     />

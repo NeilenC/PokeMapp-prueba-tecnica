@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Map, type GeoJSONSource, type Map as MapLibreMap } from "maplibre-gl";
+import { cn } from "@/lib/utils";
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const AREA_SOURCE = "viewport-area";
@@ -141,12 +142,13 @@ export function MiniMap({ map, sheetOpen }: Props) {
     <div
       aria-label="Minimapa de Argentina: tocá un punto para ir hasta ahí"
       role="img"
-      className={`absolute right-3 bottom-9 z-[1] h-[170px] w-[120px] overflow-hidden rounded-lg border-2 border-white/80 shadow-lg transition-[right,opacity] duration-300 sm:h-[200px] sm:w-[140px] ${
-        // Ancho del panel (380) + 12 de margen; debe coincidir con DRAWER_WIDTH.
-        sheetOpen
-          ? "max-sm:pointer-events-none max-sm:opacity-0 sm:right-[392px]"
-          : ""
-      }`}
+      className={cn(
+        "absolute right-3 bottom-9 z-[1] h-[170px] w-[120px] overflow-hidden rounded-lg border-2 border-white/80 shadow-lg transition-[right,opacity] duration-300 lg:h-[200px] lg:w-[140px]",
+        // Con bottom sheet se oculta; con drawer lateral (380 px + 12 de margen,
+        // ver SHEET_SIDE_WIDTH) se corre a su izquierda.
+        sheetOpen &&
+          "sheet-bottom:pointer-events-none sheet-bottom:opacity-0 sheet-side:right-[392px]",
+      )}
     >
       <div ref={containerRef} className="h-full w-full cursor-pointer" />
     </div>

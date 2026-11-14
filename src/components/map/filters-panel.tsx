@@ -14,6 +14,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { SHEET_BOTTOM_QUERY } from "@/lib/layout-mode";
 import { HelpButton } from "./help-button";
 import { ResetGame } from "./reset-game";
 import { SoundToggle } from "./sound-toggle";
@@ -98,7 +100,7 @@ function RowAction({
             aria-pressed={pressed}
             disabled={disabled}
             onClick={onClick}
-            className={cn("text-slate-400 hover:text-yellow-300", className)}
+            className={cn("text-slate-400 hover:text-yellow-300 pointer-coarse:size-10", className)}
           >
             {children}
           </Button>
@@ -137,6 +139,9 @@ export function FiltersPanel({
   const panelId = useId();
   const active = isFiltering(filters);
   const teamFull = team.length >= TEAM_SIZE;
+  // Con bottom sheet el detalle tapa buena parte del mapa: al elegir un
+  // Pokémon de la lista se cierra el panel para ver adónde vuela la cámara.
+  const bottomSheet = useMediaQuery(SHEET_BOTTOM_QUERY);
 
   // Cada Pokémon vive en UNA sola sección (aunque tenga dos tipos), así las
   // secciones suman exactamente el total. Va en su tipo principal, o en el
@@ -188,16 +193,21 @@ export function FiltersPanel({
     return { all: found + missing, found, missing };
   }, [items, discovered, filters.types]);
 
+  const locate = (item: PokemonListItem) => {
+    onLocate(item);
+    if (bottomSheet) setOpen(false);
+  };
+
   const hear = (item: PokemonListItem) => {
     // Abre el detalle y lleva la cámara (onLocate también reproduce el grito).
-    onLocate(item);
+    locate(item);
     setPlaying(item.id);
   };
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="pointer-events-none absolute inset-y-3 left-3 z-[2] flex w-80 max-w-[calc(100vw-24px)] flex-col items-start gap-2 max-lg:pb-[88px]">
-        <div className="flex items-stretch gap-2">
+      <div className="pointer-events-none absolute top-[max(0.75rem,env(safe-area-inset-top))] bottom-3 left-[max(0.75rem,env(safe-area-inset-left))] z-[2] flex w-80 max-w-[calc(100vw-1.5rem)] flex-col items-start gap-2 max-lg:pb-[calc(5.5rem+env(safe-area-inset-bottom))] max-sm:max-w-[calc(100vw-4.5rem)]">
+        <div className="flex items-stretch gap-1.5 sm:gap-2">
           <Button
             type="button"
             variant="ghost"
@@ -206,13 +216,13 @@ export function FiltersPanel({
             aria-controls={panelId}
             aria-label={`Pokedex: ${count} de ${total} descubiertos. ${open ? "Cerrar" : "Abrir"} filtros`}
             className={cn(
-              "pointer-events-auto h-auto shrink-0 rounded-xl py-2 bg-slate-900/85 font-semibold text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
+              "pointer-events-auto h-auto min-h-11 shrink-0 rounded-xl py-2 has-[>svg]:px-2.5 sm:has-[>svg]:px-3 bg-slate-900/85 font-semibold text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
               active && "ring-2 ring-yellow-300",
             )}
           >
             <ListFilter aria-hidden="true" />
             {/* Contador de Pokedex: reemplaza al texto del botón. */}
-            <span className="flex w-32 flex-col gap-1 text-left">
+            <span className="flex w-24 flex-col gap-1 text-left sm:w-32">
               <span className="flex items-baseline justify-between text-xs">
                 <span className="font-semibold tracking-wide text-yellow-300">
                   POKEDEX
@@ -257,7 +267,7 @@ export function FiltersPanel({
                       variant="ghost"
                       size="xs"
                       onClick={() => onChange(DEFAULT_FILTERS)}
-                      className="text-yellow-300 hover:text-yellow-200"
+                      className="text-yellow-300 hover:text-yellow-200 pointer-coarse:h-9"
                     >
                       Limpiar filtros
                     </Button>
@@ -268,7 +278,7 @@ export function FiltersPanel({
                     size="icon-xs"
                     onClick={() => setOpen(false)}
                     aria-label="Cerrar panel"
-                    className="text-slate-400 hover:text-white"
+                    className="text-slate-400 hover:text-white pointer-coarse:size-10"
                   >
                     <X aria-hidden="true" />
                   </Button>
@@ -294,7 +304,7 @@ export function FiltersPanel({
                       // El color del tipo entra como variable: la barra lateral
                       // siempre lo muestra y el fondo se llena al activarse.
                       style={{ "--c": typeColor(type) } as React.CSSProperties}
-                      className="h-7 w-full rounded-md border border-l-[3px] border-white/10 border-l-(--c) px-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/10 hover:text-white data-[state=on]:border-(--c) data-[state=on]:bg-(--c) data-[state=on]:text-slate-900"
+                      className="h-7 w-full rounded-md pointer-coarse:h-10 border border-l-[3px] border-white/10 border-l-(--c) px-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/10 hover:text-white data-[state=on]:border-(--c) data-[state=on]:bg-(--c) data-[state=on]:text-slate-900"
                     >
                       <span className="truncate">{typeLabel(type)}</span>
                     </ToggleGroupItem>
@@ -313,7 +323,7 @@ export function FiltersPanel({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar entre mis Pokémon"
                   aria-label="Buscar Pokémon descubierto"
-                  className="h-8 w-full rounded-md border border-white/10 bg-white/[0.06] pr-2 pl-8 text-xs text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-yellow-300"
+                  className="h-10 w-full rounded-md border border-white/10 bg-white/[0.06] pr-2 pl-8 sm:h-8 text-xs text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-yellow-300"
                 />
               </div>
 
@@ -323,7 +333,7 @@ export function FiltersPanel({
                 className="min-h-0 flex-1 gap-0 pt-2"
               >
                 <div className="shrink-0 px-3 pb-2">
-                  <TabsList className="grid h-8 w-full grid-cols-3 bg-white/[0.06]">
+                  <TabsList className="grid h-8 pointer-coarse:h-11 w-full grid-cols-3 bg-white/[0.06]">
                     {VIEWS.map(({ key, label }) => (
                       <TabsTrigger
                         key={key}
@@ -436,7 +446,7 @@ export function FiltersPanel({
                                     </RowAction>
                                     <RowAction
                                       label="Ver en el mapa"
-                                      onClick={() => onLocate(item)}
+                                      onClick={() => locate(item)}
                                     >
                                       <MapPin className="size-4" aria-hidden="true" />
                                     </RowAction>

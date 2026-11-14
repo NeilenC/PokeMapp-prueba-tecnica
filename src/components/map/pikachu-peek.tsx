@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { arcade } from "./welcome-modal";
+import { arcade } from "@/lib/arcade-font";
 
 const SHOW_MS = 5200;
 
@@ -31,7 +31,7 @@ export function PikachuPeek({ trigger }: Props) {
     <div
       key={shownFor}
       aria-hidden="true"
-      className="pointer-events-none fixed bottom-0 left-0 z-40 w-[min(340px,62vw)]"
+      className="pointer-events-none fixed bottom-0 left-0 z-40 w-[min(340px,46vw)] sm:w-[min(340px,62vw)]"
       style={{ animation: `pikachu-peek ${SHOW_MS}ms ease-in-out both` }}
     >
       <style>{`
