@@ -1,21 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   Map,
+  NavigationControl,
   setWorkerUrl,
   type Map as MapLibreMap,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { PokemonSheet } from "@/components/pokemon/pokemon-sheet";
 import { usePokemonList } from "@/hooks/use-pokemon-list";
+import {
+  discover,
+  getServerSnapshot as getServerDiscovered,
+  getSnapshot as getDiscovered,
+  subscribe as subscribeDiscovered,
+} from "@/lib/discovered-store";
+import { playCry } from "@/lib/cry";
+import { DEFAULT_FILTERS, matchingIds, type Filters } from "@/lib/filters";
+import { MAX_POKEMON } from "@/lib/pokeapi";
 import { applyPokemonTheme } from "@/lib/map-theme";
 import { applyArgentineLabels } from "@/lib/map-labels";
 import { addNeighborsMask } from "@/lib/map-mask";
 import { addZoneLayers } from "@/lib/map-zones";
 import { spawnPosition } from "@/lib/spawn";
 import type { PokemonListItem, PokemonPage } from "@/types/pokemon";
+import { FiltersPanel } from "./filters-panel";
+import { MiniMap } from "./mini-map";
+import { PokedexHud } from "./pokedex-hud";
 import { PokemonMarkers } from "./pokemon-markers";
+import { RadarOverlay } from "./radar-overlay";
 
 /** Ancho del panel de detalle; debe coincidir con `sm:w-[380px]` en pokemon-sheet.tsx. */
 const DRAWER_WIDTH = 380;
@@ -56,12 +77,40 @@ const ARGENTINA_BOUNDS: [[number, number], [number, number]] = [
 export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   // La lista llega de a páginas; los marcadores se van sumando a medida que llegan.
-  const { items, error, retry } = usePokemonList(initialPage);
+  const { items, total, error, retry } = usePokemonList(initialPage);
+  // Descubrimiento: persiste en localStorage y se lee solo en el cliente.
+  const discovered = useSyncExternalStore(
+    subscribeDiscovered,
+    getDiscovered,
+    getServerDiscovered,
+  );
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const visibleIds = useMemo(() => matchingIds(items, filters), [items, filters]);
+  const matchCount = useMemo(() => {
+    if (!visibleIds) return null;
+    let n = 0;
+    for (const id of visibleIds) if (discovered.has(id)) n++;
+    return n;
+  }, [visibleIds, discovered]);
+  const [recent, setRecent] = useState<PokemonListItem | null>(null);
+  const handleDiscover = useCallback(
+    (ids: number[]) => {
+      discover(ids);
+      const last = items.find((p) => p.id === ids[ids.length - 1]);
+      if (last) setRecent(last);
+    },
+    [items],
+  );
+  const clearRecent = useCallback(() => setRecent(null), []);
   // El mapa se expone por estado (tras `load`) para que los hijos lo usen.
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [selected, setSelected] = useState<PokemonListItem | null>(null);
   const selectedId = selected?.id ?? null;
   const closeDrawer = useCallback(() => setSelected(null), []);
+  const handleSelect = useCallback((item: PokemonListItem) => {
+    setSelected(item);
+    playCry(item.id);
+  }, []);
 
   // Selección -> vuelo suave hacia el marcador, con offset para que el panel
   // (a la derecha en pantallas anchas) no lo tape.
@@ -94,9 +143,15 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       attributionControl: { compact: true },
     });
 
+    map.addControl(new NavigationControl({ showCompass: true }), "top-right");
+
     // --- Terreno 3D + atmósfera -------------------------------------------
     map.on("load", () => {
       setMap(map);
+      // MapLibre abre la atribución al inicio; la dejamos plegada (solo "i").
+      const attrib = map.getContainer().querySelector(".maplibregl-ctrl-attrib");
+      attrib?.classList.remove("maplibregl-compact-show");
+      attrib?.removeAttribute("open");
       map.addSource(DEM_SOURCE, {
         type: "raster-dem",
         tiles: [
@@ -318,13 +373,38 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
       {map && (
-        <PokemonMarkers
-          map={map}
-          items={items}
-          selectedId={selectedId}
-          onSelect={setSelected}
-        />
+        <>
+          <PokemonMarkers
+            map={map}
+            items={items}
+            selectedId={selectedId}
+            discovered={discovered}
+            visibleIds={visibleIds}
+            onSelect={handleSelect}
+          />
+          <RadarOverlay
+            map={map}
+            items={items}
+            discovered={discovered}
+            onDiscover={handleDiscover}
+          />
+          <MiniMap map={map} sheetOpen={selectedId !== null} />
+        </>
       )}
+      <FiltersPanel
+        items={items}
+        discovered={discovered}
+        onLocate={handleSelect}
+        filters={filters}
+        onChange={setFilters}
+        matchCount={matchCount}
+      />
+      <PokedexHud
+        count={discovered.size}
+        total={total ?? MAX_POKEMON}
+        recent={recent}
+        onRecentDone={clearRecent}
+      />
       <PokemonSheet selectedId={selectedId} onClose={closeDrawer} />
       {/* Solo aparece si falla la carga; el progreso normal no se muestra. */}
       {error && (
@@ -333,7 +413,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
           style={{
             position: "absolute",
             left: 12,
-            bottom: 12,
+            bottom: 72, // sobre el contador de Pokédex
             padding: "6px 10px",
             borderRadius: 8,
             background: "rgba(15, 23, 42, 0.85)",

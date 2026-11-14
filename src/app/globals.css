@@ -71,6 +71,59 @@ body {
   to { transform: scale(2); opacity: 0; }
 }
 
+/* --- Descubrimiento ---------------------------------------------------------
+   Sin descubrir: silueta oscura, no clickeable (el click pasa al mapa). Sin
+   pulso: son 151 marcadores y el pulso queda para los ya revelados. */
+.pokemon-marker.is-undiscovered {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+  cursor: default;
+  pointer-events: none;
+}
+.pokemon-marker.is-undiscovered::before {
+  display: none;
+}
+.pokemon-marker.is-undiscovered img {
+  filter: brightness(0) opacity(0.45);
+}
+
+/* Filtros: los descubiertos que no cumplen se apagan y no se pueden tocar. */
+.pokemon-marker {
+  transition: opacity 0.25s;
+}
+.pokemon-marker.is-filtered-out {
+  opacity: 0.18;
+  pointer-events: none;
+}
+.pokemon-marker.is-filtered-out img {
+  filter: grayscale(1);
+}
+.pokemon-marker.is-filtered-out::before {
+  display: none;
+}
+
+/* Revelado: el destello va en box-shadow y el "pop" en la imagen. MapLibre
+   posiciona el marcador con `transform` en el propio elemento, así que ahí no
+   se puede animar transform. */
+@keyframes discover-flash {
+  from { box-shadow: 0 0 0 0 var(--type-color, #fff); }
+  to { box-shadow: 0 0 0 30px transparent; }
+}
+@keyframes discover-pop {
+  0% { transform: scale(0.4); filter: brightness(3); }
+  60% { transform: scale(1.25); filter: brightness(1.4); }
+  100% { transform: scale(1); filter: none; }
+}
+.pokemon-marker.just-discovered {
+  animation: discover-flash 0.9s ease-out;
+}
+.pokemon-marker.just-discovered img {
+  animation: discover-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pokemon-marker::before { animation: none; }
+  .pokemon-marker.just-discovered,
+  .pokemon-marker.just-discovered img { animation: none; }
 }

@@ -17,6 +17,13 @@ export interface PokemonPage {
   nextOffset: number | null;
 }
 
+/** Estadística base ya traducida (PokéAPI trae `special-attack`, etc.). */
+export interface PokemonStat {
+  key: string;
+  label: string;
+  base: number;
+}
+
 /** Detalle de un Pokémon, ya limpio, para mostrar al tocar un marcador. */
 export interface PokemonDetail {
   id: number;
@@ -25,6 +32,8 @@ export interface PokemonDetail {
   types: string[];
   heightM: number;
   weightKg: number;
+  /** Las 6 estadísticas base, en el orden de PokéAPI (PS … Velocidad). */
+  stats: PokemonStat[];
   artworkUrl: string;
   /** Texto del Pokédex sin saltos raros; `null` si no hay en es ni en en. */
   description: string | null;

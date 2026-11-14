@@ -120,7 +120,17 @@ interface PokeApiPokemon {
   height: number; // decímetros
   weight: number; // hectogramos
   types: { type: { name: string } }[];
+  stats: { base_stat: number; stat: { name: string } }[];
 }
+
+const STAT_LABELS: Record<string, string> = {
+  hp: "PS",
+  attack: "Ataque",
+  defense: "Defensa",
+  "special-attack": "At. esp.",
+  "special-defense": "Def. esp.",
+  speed: "Velocidad",
+};
 
 interface PokeApiSpecies {
   flavor_text_entries: {
@@ -177,6 +187,11 @@ export async function fetchPokemonDetail(
     types: pokemon.types.map((t) => t.type.name),
     heightM: pokemon.height / 10,
     weightKg: pokemon.weight / 10,
+    stats: pokemon.stats.map((s) => ({
+      key: s.stat.name,
+      label: STAT_LABELS[s.stat.name] ?? s.stat.name,
+      base: s.base_stat,
+    })),
     artworkUrl: artworkUrl(id),
     ...pickDescription(species.flavor_text_entries),
   };

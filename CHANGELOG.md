@@ -2,6 +2,34 @@
 
 Registro de lo hecho, en orden cronológico inverso.
 
+## Minimapa, gritos y explorador por tipo
+
+- [mini-map.tsx](src/components/map/mini-map.tsx): minimapa plano de Argentina abajo a la derecha, con el área visible del mapa principal (recuadro) y un punto en el centro de la cámara. Segundo `Map` de MapLibre, no interactivo; el click lleva la cámara principal hasta ese punto. El borde superior del recuadro se toma al 40 % de la altura porque con pitch alto la parte de arriba es cielo y `unproject` da valores absurdos. Se corre a la izquierda del panel de detalle y se oculta en móvil mientras está abierto.
+- [cry.ts](src/lib/cry.ts): grito del Pokémon (`PokeAPI/cries`, variante `legacy`) **solo al seleccionarlo**, no al descubrirlo: el radar suele revelar varios a la vez y sonarían todos juntos. Un único `Audio` compartido, así que un grito corta al anterior. Errores de reproducción ignorados. `setCriesMuted` queda listo para el futuro menú.
+- [filters-panel.tsx](src/components/map/filters-panel.tsx) + [filters.ts](src/lib/filters.ts): panel lateral "Pokémon por tipo". Lista agrupada por tipo (un Pokémon de dos tipos aparece en ambas secciones) con sprite, nombre y contador descubiertos/total. Click en la fila = grito; el pin abre el detalle y vuela hasta el Pokémon. Selector Todos / Descubiertos / Faltan con contadores ajustados al tipo elegido.
+- Los chips de tipo también apagan los marcadores **descubiertos** del mapa (`is-filtered-out`). Las siluetas no se filtran ni se nombran en la lista (`???`), para que el filtro no delate su tipo.
+- Decisiones: sin filtro por generación (la app es solo Gen 1) y sin filtro por stats (se probó y no se entendía; se quitó junto con sus 151 requests extra).
+- Pendiente: botón de silencio, equipo de expedición, y revisar si los gritos `legacy` existen para los 151.
+
+## Descubrimiento con radar y Pokédex
+
+- Los Pokémon arrancan como **siluetas** (sin pulso, no clickeables: el click pasa al mapa) y se revelan al ser descubiertos. Solo los descubiertos se pueden abrir.
+- [radar-overlay.tsx](src/components/map/radar-overlay.tsx): radar HUD en el centro de la pantalla (diámetro `clamp(220px, 56vmin, 440px)`). Un haz gira cada 6 s; cuando cruza un Pokémon dentro del círculo lo descubre. El ángulo se escribe por DOM en un `requestAnimationFrame` (sin re-render) y es el mismo que decide el descubrimiento, así haz y lógica no se desfasan. Tope de 40°/frame para que, tras una pestaña en segundo plano, no se revele todo de golpe. La deriva de cámara hace que el radar descubra mientras el mapa "planea".
+- **El radar depende del zoom:** con el círculo de tamaño fijo en pantalla, alejado cubría medio país y se descubría casi todo de golpe. Ahora aparece con un fundido entre zoom 6 y 6,5 (`RADAR_FADE_START_ZOOM` / `RADAR_MIN_ZOOM`) y **solo descubre desde 6,5** (donde abarca unos 150–200 km). Alejado no se ve ni revela nada.
+- [discovered-store.ts](src/lib/discovered-store.ts): almacén externo para `useSyncExternalStore`, persistido en `localStorage` (`pokemapp:discovered:v1`) y leído solo en el cliente. Si el storage está bloqueado, el descubrimiento sigue en memoria.
+- [pokedex-hud.tsx](src/components/map/pokedex-hud.tsx): contador "POKÉDEX n / 151" con barra de progreso y aviso animado (Framer Motion) al descubrir; región `aria-live` para lectores de pantalla.
+- [pokemon-markers.tsx](src/components/map/pokemon-markers.tsx) + [globals.css](src/app/globals.css): animación de revelado (destello en `box-shadow` y "pop" en la imagen; no se anima `transform` del marcador porque MapLibre lo usa para posicionarlo). No se anima al restaurar lo guardado. Marcadores sin descubrir con `aria-hidden` y `disabled`.
+- `prefers-reduced-motion`: sin haz ni animaciones; todo lo que entra al círculo se revela directo.
+- Se quitó un `console.log` de depuración que quedaba en `createMarkerElement`.
+- Limitación conocida: una persona que navega solo con teclado no puede descubrir (el radar es visual, solo se mueve con el mapa); falta una alternativa accesible.
+
+## Estadísticas base con barras animadas
+
+- `PokemonDetail.stats` ([pokemon.ts](src/types/pokemon.ts)): las 6 stats base traducidas (PS, Ataque, Defensa, At. esp., Def. esp., Velocidad), armadas en `fetchPokemonDetail` ([pokeapi.ts](src/lib/pokeapi.ts)) desde el mismo `/pokemon/{id}` (sin requests extra).
+- [stat-bar.tsx](src/components/pokemon/stat-bar.tsx): barra con Framer Motion que se llena de 0 al valor (`scaleX`, compositor, sin relayout), escalonada 70 ms entre barras. Con `prefers-reduced-motion` aparece ya llena. Escala visual con tope en 200 (el máximo real es 255, pero casi todo queda entre 40 y 130).
+- [pokemon-sheet.tsx](src/components/pokemon/pokemon-sheet.tsx): sección "Estadísticas base" con total; `key={id}` para que las barras vuelvan a llenarse al cambiar de Pokémon. Lista `ul/li` accesible (el número es texto; la barra es decorativa).
+- [pokemon-skeleton.tsx](src/components/pokemon/pokemon-skeleton.tsx): 6 barras de relleno para respetar el layout final.
+
 ## Estilo del mapa y zonas visibles
 
 - [lib/map-theme.ts](src/lib/map-theme.ts): paleta propia (tierra cálida, agua y vegetación más saturadas) aplicada con `setPaintProperty` sobre el estilo `liberty`; ignora capas que falten.

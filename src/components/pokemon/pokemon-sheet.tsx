@@ -10,6 +10,7 @@ import {
 import { usePokemonDetail } from "@/hooks/use-pokemon-detail";
 import { typeColor } from "@/lib/type-colors";
 import { PokemonSkeleton } from "./pokemon-skeleton";
+import { StatBar } from "./stat-bar";
 import { TypeBadge } from "./type-badge";
 
 interface Props {
@@ -110,6 +111,36 @@ export function PokemonSheet({ selectedId, onClose }: Props) {
                 </dd>
               </div>
             </dl>
+
+            {/* key = id: al cambiar de Pokémon las barras vuelven a llenarse. */}
+            <section
+              key={detail.id}
+              aria-labelledby="stats-title"
+              className="border-t border-white/10 pt-3"
+            >
+              <div className="mb-2 flex items-baseline justify-between">
+                <h3 id="stats-title" className="text-sm font-semibold">
+                  Estadísticas base
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  Total{" "}
+                  <span className="font-bold text-foreground tabular-nums">
+                    {detail.stats.reduce((sum, s) => sum + s.base, 0)}
+                  </span>
+                </span>
+              </div>
+              <ul className="flex flex-col gap-1.5">
+                {detail.stats.map((s, i) => (
+                  <StatBar
+                    key={s.key}
+                    label={s.label}
+                    value={s.base}
+                    color={accent}
+                    index={i}
+                  />
+                ))}
+              </ul>
+            </section>
           </div>
         )}
       </SheetContent>

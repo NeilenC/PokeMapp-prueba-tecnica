@@ -6,6 +6,16 @@ import type { PokemonDetail } from "@/types/pokemon";
 /** Caché en memoria por id: reseleccionar un marcador no repite el request. */
 const cache = new Map<number, PokemonDetail>();
 
+/**
+ * Devuelve el detalle cacheado solo si tiene la forma actual. Una entrada
+ * guardada con un modelo anterior (p. ej. sin `stats`, tras un hot reload) se
+ * trata como ausente y se vuelve a pedir, en vez de romper el panel.
+ */
+function cachedDetail(id: number): PokemonDetail | undefined {
+  const detail = cache.get(id);
+  return detail && Array.isArray(detail.stats) ? detail : undefined;
+}
+
 type State =
   | { status: "idle" }
   | { status: "loading" }
@@ -29,7 +39,7 @@ export function usePokemonDetail(id: number | null): PokemonDetailState {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (id === null || cache.has(id)) return;
+    if (id === null || cachedDetail(id)) return;
 
     const controller = new AbortController();
     (async () => {
@@ -40,6 +50,9 @@ export function usePokemonDetail(id: number | null): PokemonDetailState {
         });
         if (!res.ok) throw new Error(`Error ${res.status}`);
         const detail = (await res.json()) as PokemonDetail;
+        if (!Array.isArray(detail.stats)) {
+          throw new Error("Respuesta inesperada del servidor");
+        }
         cache.set(id, detail);
         setResult({ id, state: { status: "ready", detail } });
       } catch (e) {
@@ -59,7 +72,7 @@ export function usePokemonDetail(id: number | null): PokemonDetailState {
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
-  const cached = id !== null ? cache.get(id) : undefined;
+  const cached = id !== null ? cachedDetail(id) : undefined;
   const state: State = cached
     ? { status: "ready", detail: cached }
     : id === null
