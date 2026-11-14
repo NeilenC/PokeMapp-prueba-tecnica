@@ -14,7 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { playCry } from "@/lib/cry";
+import { ResetGame } from "./reset-game";
 import { SoundToggle } from "./sound-toggle";
 import { DEFAULT_FILTERS, isFiltering, type Filters } from "@/lib/filters";
 import { TEAM_SIZE } from "@/lib/team-store";
@@ -42,6 +42,8 @@ interface Props {
   /** Progreso de la Pokédex que se muestra en el botón. */
   count: number;
   total: number;
+  /** Reinicia el juego (ya confirmado por el usuario). */
+  onReset: () => void;
 }
 
 interface Group {
@@ -116,6 +118,7 @@ export function FiltersPanel({
   matchCount,
   count,
   total,
+  onReset,
 }: Props) {
   const [open, setOpen] = useState(false);
   const progress = total > 0 ? Math.min(count / total, 1) : 0;
@@ -164,7 +167,8 @@ export function FiltersPanel({
   }, [items, discovered, filters.types]);
 
   const hear = (item: PokemonListItem) => {
-    playCry(item.id);
+    // Abre el detalle y lleva la cámara (onLocate también reproduce el grito).
+    onLocate(item);
     setPlaying(item.id);
   };
 
@@ -207,6 +211,7 @@ export function FiltersPanel({
             )} */}
           </Button>
           <SoundToggle />
+          <ResetGame discovered={count} onReset={onReset} />
         </div>
 
         <AnimatePresence>
@@ -339,7 +344,7 @@ export function FiltersPanel({
                                   onClick={() => hear(item)}
                                   aria-label={
                                     found
-                                      ? `Escuchar a ${item.name}`
+                                      ? `Ver detalle de ${item.name}`
                                       : "Pokémon sin descubrir"
                                   }
                                   className={cn(

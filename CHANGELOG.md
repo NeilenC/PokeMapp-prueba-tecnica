@@ -2,6 +2,27 @@
 
 Registro de lo hecho, en orden cronológico inverso.
 
+## Pokémon de agua sobre el agua
+
+- [water-spots.ts](src/lib/water-spots.ts) (**generado**): 359 puntos de agua en 39 de las 47 zonas. Salen de los polígonos de la capa `water` de las teselas vectoriales de OpenFreeMap (z9), la misma fuente que dibuja el mapa, muestreados cada 0,02° y filtrados para quedar lejos de la costa (el mayor margen posible por zona: 0,04° → 0,004°, para que entren también los lagos angostos como el Lácar) y fuera de la tierra de los países vecinos (`public/geo/neighbors.geojson`), así no caen en fiordos chilenos. Las zonas sin agua (Aconcagua, Valle de la Luna, Yungas, Cafayate, Fiambalá, Tandil, Mar del Plata, que no llega al mar) no aparecen.
+- [spawn.ts](src/lib/spawn.ts): todo Pokémon con tipo Agua (32) solo elige zonas con agua y se ubica en uno de sus puntos (el más alejado de los ya puestos). Los acuáticos se cuentan aparte (`waterLoad`, capacidad = ¼ de los puntos de la zona) para que compitan por el agua y no por la tierra. El resto del reparto no cambia.
+- Medido: 32/32 acuáticos sobre un punto de agua; 151/151 siguen en una zona afín a alguno de sus tipos. La separación mínima baja de 0,37° a 0,20° (3 Pokémon con vecino a menos de 0,2°) porque algunas zonas con poca agua (p. ej. Río Negro, 2 puntos) alojan a más de uno.
+- El generador no está en el repo: necesita `@mapbox/vector-tile` y `pbf`, y `tsc` lo chequearía sin esas dependencias. Si cambian las zonas hay que volver a generarlo.
+
+## Reiniciar el juego
+
+- [reset-game.tsx](src/components/map/reset-game.tsx): botón con icono de reinicio junto al de sonido. Abre un `AlertDialog` (nuevo [alert-dialog.tsx](src/components/ui/alert-dialog.tsx), escrito a mano porque la CLI de shadcn se quedó esperando una confirmación y volvió a agregar el paquete `cn` equivocado) que indica cuántos Pokémon se pierden y avisa que no se puede deshacer.
+- `resetDiscovered()` y `resetTeam()` borran el estado en memoria y las claves de `localStorage` (`pokemapp:discovered:v1`, `pokemapp:team:v1`, `pokemapp:companion:v1`) y avisan a los suscriptores; siempre borran, aunque el almacén todavía no hubiera leído el storage. `handleReset` en [map-view.tsx](src/components/map/map-view.tsx) además corta el grito, cierra el detalle y limpia el aviso, el salto del compañero y los filtros.
+- Los ajustes (silencio) no se tocan: no son progreso.
+
+## Spawn más repartido
+
+- [spawn.ts](src/lib/spawn.ts): el reparto ya no se decide Pokémon por Pokémon sino **una sola vez para los 151** (`buildLayout`, en orden de id, determinista). Cada uno prefiere la zona que mejor le queda por tipo (tipos en común + bonus por tipo principal), pero una zona cargada pierde atractivo (`LOAD_PENALTY`, según su capacidad por área) y una vacía gana un bonus (`EMPTY_ZONE_BONUS`), así que todas las zonas reciben alguien. Dentro de la zona, cada Pokémon se ubica en el punto más alejado de los ya puestos (best-candidate de Mitchell, 40 intentos).
+- [gen1-types.ts](src/lib/gen1-types.ts): tabla fija con los tipos de los 151 (de PokéAPI), necesaria porque la lista llega de a páginas y el reparto necesita verlos a todos a la vez.
+- Zonas nuevas donde había huecos: Neuquén (Auca Mahuida), San Martín de los Andes (Lanín), valle del Río Negro, Meseta de Somuncurá, Cueva de las Manos, Payunia (Malargüe) y Lihué Calel (La Pampa).
+- Medido sobre los 151 (grados de latitud): distancia mínima entre vecinos 0,02° → 0,37°; mediana 0,34° → 0,79°; Pokémon con un vecino a menos de 0,3°: 68 → 0; zona más cargada 10 → 9. Los 151 siguen cayendo en una zona afín a alguno de sus tipos, y 137 en una afín a todos.
+- Límite: a zoom de país entero (≈5,5) un marcador de 48 px abarca ~0,65°, así que algo de solapamiento visual persiste; se resuelve acercando el zoom.
+
 ## Clima: niebla y lluvia
 
 - [weather.ts](src/lib/weather.ts): zonas de clima independientes de las de spawn, definidas como unión de círculos con un `weight` (como el spawn, así el borde es orgánico). `LITORAL` (niebla) cubre Misiones, Corrientes (Iberá), Chaco húmedo, Entre Ríos, Santa Fe y el Delta. `LLUVIA` sale del mapa de precipitación anual 1981-2010 del SMN: el color da el peso (violeta/azul oscuro ≈ 0,8–1 en el NEA; azul ≈ 0,6–0,75 en Entre Ríos, Santa Fe y NE bonaerense; celeste ≈ 0,35–0,45 en Pampa central, Córdoba y sur bonaerense; franja azul de la cordillera patagónica ≈ 0,55–0,7). Es una aproximación con círculos, no una réplica del mapa. `weatherAt(map)` toma el centro de la cámara, atenúa por zoom (nada a zoom ≤ 4,5; pleno desde 6) y devuelve `fog`, `rain` y `severity` (se combinan como probabilidades: `1 − (1−fog)(1−rain)`).

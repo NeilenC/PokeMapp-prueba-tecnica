@@ -1,8 +1,21 @@
 /**
  * Ubicación de cada Pokémon según su bioma (SPEC §1). El bioma sale de los
- * tipos del Pokémon; la posición exacta es determinista (PRNG con semilla = id),
- * así no cambia entre recargas ni entre usuarios.
+ * tipos del Pokémon; todo el reparto es determinista (PRNG con semilla = id y
+ * orden fijo), así no cambia entre recargas ni entre usuarios.
+ *
+ * El reparto se calcula una sola vez para los 151 a la vez (ver `buildLayout`):
+ * cada uno prefiere la zona que mejor le queda por tipo, pero las zonas muy
+ * cargadas pierden atractivo y las vacías ganan un bonus, y dentro de la zona
+ * se ubica lo más lejos posible de los ya puestos. Así no se amontonan.
+ *
+ * Los Pokémon con tipo Agua solo eligen zonas que tengan agua y se ubican
+ * sobre puntos de lagos, ríos anchos o mar (`water-spots.ts`), no en tierra.
+ * Además, Agua+Hielo solo va a zonas con hielo (aguas heladas) y los demás
+ * acuáticos solo a zonas sin hielo.
  */
+
+import { GEN1_TYPES } from "@/lib/gen1-types";
+import { WATER_SPOTS } from "@/lib/water-spots";
 
 export interface SpawnZone {
   id: string;
@@ -28,7 +41,14 @@ export const SPAWN_ZONES: SpawnZone[] = [
   { id: "comodoro", name: "Comodoro Rivadavia", region: "Patagonia", center: [-67.6, -45.9], radius: 0.7, types: ["steel", "rock", "normal"] },
   { id: "rio-gallegos", name: "Estepa de Santa Cruz", region: "Patagonia", center: [-69.3, -51.6], radius: 1.0, types: ["steel", "rock", "normal", "flying"] },
   { id: "valdes", name: "Puerto Madryn y Península Valdés", region: "Patagonia", center: [-65.2, -42.8], radius: 0.6, types: ["water", "flying", "normal"] },
+  // Norte y centro de la Patagonia: estepa, volcanes y valles (antes casi vacío)
+  { id: "neuquen", name: "Neuquén (Auca Mahuida)", region: "Patagonia", center: [-68.9, -38.3], radius: 0.9, types: ["fire", "ground", "rock", "steel"] },
+  { id: "lanin", name: "San Martín de los Andes (Lanín)", region: "Patagonia", center: [-71.3, -40.15], radius: 0.45, types: ["water", "grass", "ice", "fairy"] },
+  { id: "rio-negro", name: "Valle del Río Negro (Roca)", region: "Patagonia", center: [-67.7, -39.0], radius: 0.7, types: ["grass", "water", "normal", "bug"] },
+  { id: "somuncura", name: "Meseta de Somuncurá", region: "Patagonia", center: [-67.0, -41.5], radius: 1.1, types: ["rock", "steel", "ground", "normal"] },
+  { id: "cueva-manos", name: "Cueva de las Manos", region: "Patagonia", center: [-70.7, -47.15], radius: 0.7, types: ["rock", "ghost", "fighting", "normal"] },
   // --- Cuyo: montaña, árido -----------------------------------------------
+  { id: "payunia", name: "Payunia (Malargüe)", region: "Cuyo", center: [-69.3, -36.4], radius: 0.7, types: ["fire", "rock", "ground", "steel"] },
   { id: "aconcagua", name: "Cordillera (Aconcagua)", region: "Cuyo", center: [-69.9, -32.65], radius: 0.8, types: ["rock", "fighting", "ground"] },
   { id: "cordon-plata", name: "Cordón del Plata", region: "Cuyo", center: [-69.35, -33.0], radius: 0.5, types: ["ice", "rock", "fighting"] },
   { id: "mendoza", name: "Valles de Mendoza", region: "Cuyo", center: [-68.5, -33.3], radius: 0.7, types: ["grass", "ground", "fire", "normal"] },
@@ -59,6 +79,7 @@ export const SPAWN_ZONES: SpawnZone[] = [
   { id: "tandil", name: "Sierras de Tandil", region: "Pampa", center: [-59.1, -37.3], radius: 0.5, types: ["rock", "normal", "fighting"] },
   { id: "mar-del-plata", name: "Mar del Plata", region: "Pampa", center: [-58.0, -37.9], radius: 0.4, types: ["water", "flying", "normal"] },
   { id: "bahia-blanca", name: "Bahía Blanca", region: "Pampa", center: [-62.6, -38.5], radius: 0.5, types: ["water", "flying", "normal"] },
+  { id: "lihue-calel", name: "Lihué Calel (La Pampa)", region: "Pampa", center: [-65.6, -38.1], radius: 0.8, types: ["rock", "ground", "normal", "flying", "fighting"] },
   { id: "mar-chiquita", name: "Mar Chiquita", region: "Pampa", center: [-62.6, -30.7], radius: 0.6, types: ["water", "flying", "normal"] },
   // --- Centro / Córdoba: sierras -----------------------------------------
   { id: "sierras", name: "Sierras de Córdoba", region: "Centro", center: [-64.6, -31.6], radius: 0.7, types: ["psychic", "fairy", "normal", "ghost"] },
@@ -66,6 +87,17 @@ export const SPAWN_ZONES: SpawnZone[] = [
 ];
 
 const FALLBACK_ZONE = SPAWN_ZONES.find((z) => z.id === "pampa")!;
+
+/** Distancia mínima buscada entre dos Pokémon, en grados de latitud (~33 km). */
+const MIN_SPACING = 0.3;
+/** Los grados de longitud son más cortos que los de latitud (~cos 30°). */
+const LNG_SCALE = 0.87;
+/** Puntos que se prueban por Pokémon; se queda con el más alejado de los demás. */
+const CANDIDATES = 40;
+/** Cuánto pesa un tipo en común, el tipo principal, la zona vacía y la carga. */
+const PRIMARY_BONUS = 0.5;
+const EMPTY_ZONE_BONUS = 0.8;
+const LOAD_PENALTY = 2;
 
 /** mulberry32: PRNG chico, rápido y reproducible. */
 function mulberry32(seed: number): () => number {
@@ -79,34 +111,138 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+/** Puntos de agua de la zona (de los polígonos de agua del propio mapa), si los hay. */
+const waterSpots = (zone: SpawnZone) => WATER_SPOTS[zone.id];
+
+const isAquatic = (types: string[]) => types.includes("water");
+
+/** Cuántos acuáticos caben en la zona: un cuarto de sus puntos, al menos uno. */
+const waterCapacity = (zone: SpawnZone) =>
+  Math.max(1, Math.round((waterSpots(zone)?.length ?? 0) / 4));
+
+const commonTypes = (zone: SpawnZone, types: string[]) =>
+  types.filter((t) => zone.types.includes(t)).length;
+
+/** Cuántos Pokémon caben en la zona con la separación mínima. */
+const capacity = (zone: SpawnZone) =>
+  Math.max(1, Math.round((Math.PI * zone.radius ** 2) / MIN_SPACING ** 2));
+
+const distance = (a: [number, number], b: [number, number]) =>
+  Math.hypot((a[0] - b[0]) * LNG_SCALE, a[1] - b[1]);
+
 /**
- * Elige la zona con más tipos en común (Lapras, agua/hielo, cae en glaciares
- * y lagos patagónicos). Si hay empate, desempata el PRNG; sin coincidencias,
- * va a la llanura pampeana.
+ * Zona para un Pokémon: gana la que más tipos comparte (y su tipo principal),
+ * pero una zona ya cargada cede ante otra apenas peor, y las vacías atraen.
+ * Sin ninguna coincidencia va a la llanura pampeana.
  */
+function chooseZone(
+  id: number,
+  types: string[],
+  load: Map<string, number>,
+  waterLoad: Map<string, number>,
+) {
+  const noise = mulberry32(id * 7919);
+  const aquatic = isAquatic(types);
+  let best: { zone: SpawnZone; value: number } | null = null;
+  for (const zone of SPAWN_ZONES) {
+    const common = commonTypes(zone, types);
+    const jitter = noise() * 0.05; // desempate reproducible
+    // Un acuático solo puede vivir donde hay agua; el resto, en cualquier zona.
+    if (common === 0 || (aquatic && !waterSpots(zone))) continue;
+    // Temperatura del agua: Agua+Hielo solo en aguas heladas (zona con hielo);
+    // el resto de los acuáticos, en aguas no heladas (ej. Magikarp, no glaciar).
+    if (aquatic && types.includes("ice") !== zone.types.includes("ice")) continue;
+    // Los acuáticos se cuentan aparte: compiten por los puntos de agua, no por la tierra.
+    const used = (aquatic ? waterLoad : load).get(zone.id) ?? 0;
+    const cap = aquatic ? waterCapacity(zone) : capacity(zone);
+    const value =
+      common +
+      (zone.types.includes(types[0]) ? PRIMARY_BONUS : 0) +
+      (used === 0 ? EMPTY_ZONE_BONUS : 0) -
+      (LOAD_PENALTY * used) / cap +
+      jitter;
+    if (!best || value > best.value) best = { zone, value };
+  }
+  return best?.zone ?? FALLBACK_ZONE;
+}
+
+/**
+ * Punto más alejado de los ya ubicados (best-candidate de Mitchell). Sin
+ * `spots` prueba puntos al azar dentro del círculo de la zona; con `spots`
+ * (acuáticos) elige solo entre esos puntos de agua.
+ */
+function farthestPoint(
+  id: number,
+  zone: SpawnZone,
+  placed: [number, number][],
+  spots?: readonly (readonly [number, number])[],
+): [number, number] {
+  const rand = mulberry32(id * 104729);
+  let best: [number, number] = spots ? [spots[0][0], spots[0][1]] : zone.center;
+  let bestGap = -1;
+  const tries = spots ? spots.length : CANDIDATES;
+  for (let i = 0; i < tries; i++) {
+    let point: [number, number];
+    if (spots) {
+      point = [spots[i][0], spots[i][1]];
+    } else {
+      // Punto uniforme dentro del círculo (raíz para no amontonar en el centro).
+      const angle = rand() * Math.PI * 2;
+      const dist = Math.sqrt(rand()) * zone.radius;
+      point = [
+        zone.center[0] + Math.cos(angle) * dist,
+        zone.center[1] + Math.sin(angle) * dist,
+      ];
+    }
+    const gap = placed.reduce((min, p) => Math.min(min, distance(point, p)), Infinity);
+    if (gap > bestGap) {
+      bestGap = gap;
+      best = point;
+    }
+  }
+  return best;
+}
+
+interface Placement {
+  zone: SpawnZone;
+  position: [lng: number, lat: number];
+}
+
+let layout: Map<number, Placement> | null = null;
+
+/** Reparte los 151 en orden de id; se calcula una vez y se reutiliza. */
+function buildLayout(): Map<number, Placement> {
+  const result = new Map<number, Placement>();
+  const load = new Map<string, number>();
+  const waterLoad = new Map<string, number>();
+  const placed: [number, number][] = [];
+  for (const [id, types] of GEN1_TYPES) {
+    const zone = chooseZone(id, types, load, waterLoad);
+    const spots = isAquatic(types) ? waterSpots(zone) : undefined;
+    const position = farthestPoint(id, zone, placed, spots);
+    const bucket = spots ? waterLoad : load;
+    bucket.set(zone.id, (bucket.get(zone.id) ?? 0) + 1);
+    placed.push(position);
+    result.set(id, { zone, position });
+  }
+  return result;
+}
+
+const getLayout = () => (layout ??= buildLayout());
+
+/** Zona asignada a un Pokémon (para ids fuera de Gen 1, la que mejor le calza). */
 export function pickZone(id: number, types: string[]): SpawnZone {
-  const scored = SPAWN_ZONES.map((zone) => ({
-    zone,
-    score: types.filter((t) => zone.types.includes(t)).length,
-  }));
-  const best = Math.max(...scored.map((s) => s.score));
-  if (best === 0) return FALLBACK_ZONE;
-  const candidates = scored.filter((s) => s.score === best);
-  const rand = mulberry32(id * 7919)();
-  return candidates[Math.floor(rand * candidates.length)].zone;
+  const placement = getLayout().get(id);
+  if (placement) return placement.zone;
+  return chooseZone(id, types, new Map(), new Map());
 }
 
 export function spawnPosition(
   id: number,
   types: string[],
 ): [lng: number, lat: number] {
-  const zone = pickZone(id, types);
-  const rand = mulberry32(id * 104729);
-  // Punto uniforme dentro del círculo (raíz para no amontonar en el centro).
-  const angle = rand() * Math.PI * 2;
-  const dist = Math.sqrt(rand()) * zone.radius;
-  return [
-    zone.center[0] + Math.cos(angle) * dist,
-    zone.center[1] + Math.sin(angle) * dist,
-  ];
+  const placement = getLayout().get(id);
+  if (placement) return placement.position;
+  const zone = chooseZone(id, types, new Map(), new Map());
+  return farthestPoint(id, zone, [], isAquatic(types) ? waterSpots(zone) : undefined);
 }

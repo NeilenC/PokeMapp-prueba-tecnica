@@ -95,6 +95,20 @@ export function removeFromTeam(id: number): void {
   commit();
 }
 
+/** Vacía el equipo y suelta al compañero. */
+export function resetTeam(): void {
+  loaded = true; // no volver a leer lo que se acaba de borrar
+  team = EMPTY;
+  companion = null;
+  try {
+    window.localStorage.removeItem(TEAM_KEY);
+    window.localStorage.removeItem(COMPANION_KEY);
+  } catch {
+    // Sin acceso al storage: el reinicio igual vale en memoria.
+  }
+  for (const listener of listeners) listener();
+}
+
 /** Elige al compañero entre los del equipo; `null` = sin compañero. */
 export function setCompanion(id: number | null): void {
   load();

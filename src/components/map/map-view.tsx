@@ -21,9 +21,10 @@ import {
   discover,
   getServerSnapshot as getServerDiscovered,
   getSnapshot as getDiscovered,
+  resetDiscovered,
   subscribe as subscribeDiscovered,
 } from "@/lib/discovered-store";
-import { isCryPlaying, playCry } from "@/lib/cry";
+import { isCryPlaying, playCry, stopCry } from "@/lib/cry";
 import { DEFAULT_FILTERS, matchingIds, type Filters } from "@/lib/filters";
 import { MAX_POKEMON } from "@/lib/pokeapi";
 import {
@@ -34,6 +35,7 @@ import {
   getServerSnapshot as getServerTeam,
   getSnapshot as getTeam,
   removeFromTeam,
+  resetTeam,
   subscribe as subscribeTeam,
 } from "@/lib/team-store";
 import { applyPokemonTheme } from "@/lib/map-theme";
@@ -159,6 +161,18 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
   const handleSelect = useCallback((item: PokemonListItem) => {
     setSelected(item);
     playCry(item.id);
+  }, []);
+  // Reiniciar: borra progreso, equipo y compañero, y limpia lo que quedaba en
+  // pantalla (detalle abierto, aviso, filtros, salto del compañero). Los ajustes
+  // (silencio) se conservan.
+  const handleReset = useCallback(() => {
+    stopCry();
+    resetDiscovered();
+    resetTeam();
+    setSelected(null);
+    setRecent(null);
+    setCheer(0);
+    setFilters(DEFAULT_FILTERS);
   }, []);
 
   // Selección -> vuelo suave hacia el marcador, con offset para que el panel
@@ -473,6 +487,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         matchCount={matchCount}
         count={discovered.size}
         total={total ?? MAX_POKEMON}
+        onReset={handleReset}
       />
       <PokedexHud
         recent={recent}

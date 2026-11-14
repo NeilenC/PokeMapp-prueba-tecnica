@@ -44,6 +44,18 @@ export function getServerSnapshot(): ReadonlySet<number> {
   return EMPTY;
 }
 
+/** Borra todo el progreso de descubrimiento (también del almacenamiento). */
+export function resetDiscovered(): void {
+  loaded = true; // no volver a leer lo que se acaba de borrar
+  discovered = EMPTY;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Sin acceso al storage: el reinicio igual vale en memoria.
+  }
+  for (const listener of listeners) listener();
+}
+
 /** Marca como descubiertos los ids nuevos; ignora los que ya lo estaban. */
 export function discover(ids: number[]): void {
   load();
