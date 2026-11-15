@@ -222,8 +222,8 @@ export function FiltersPanel({
           >
             <ListFilter aria-hidden="true" />
             {/* Contador de Pokedex: reemplaza al texto del botón. */}
-            <span className="flex w-20 flex-col gap-1 text-left sm:w-32">
-              <span className="flex items-baseline justify-between text-xs">
+            <span className="flex w-auto flex-col gap-1 text-left sm:w-32">
+              <span className="flex items-baseline justify-between gap-2 text-xs whitespace-nowrap">
                 <span className="font-semibold tracking-wide text-yellow-300">
                   POKEDEX
                 </span>

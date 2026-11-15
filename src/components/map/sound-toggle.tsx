@@ -10,6 +10,13 @@ import {
   subscribeMuted,
 } from "@/lib/cry";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_VOLUME,
+  getServerVolumeSnapshot,
+  getVolumeSnapshot,
+  setVolume,
+  subscribeVolume,
+} from "@/lib/volume-store";
 import { VolumeSlider } from "./volume-slider";
 
 /**
@@ -22,7 +29,19 @@ export function SoundToggle({ className }: { className?: string }) {
     getMutedSnapshot,
     getServerMutedSnapshot,
   );
-  const label = muted ? "Activar sonidos" : "Silenciar sonidos";
+  const volume = useSyncExternalStore(
+    subscribeVolume,
+    getVolumeSnapshot,
+    getServerVolumeSnapshot,
+  );
+  // Sin sonido tanto en silencio como con el volumen en 0.
+  const silent = muted || volume === 0;
+  const label = silent ? "Activar sonidos" : "Silenciar sonidos";
+  const toggle = () => {
+    // Con el volumen en 0 no hay nada que "desilenciar": se sube al valor por defecto.
+    if (!muted && volume === 0) setVolume(DEFAULT_VOLUME);
+    else setCriesMuted(!muted);
+  };
 
   return (
     <div className="group relative flex">
@@ -32,14 +51,14 @@ export function SoundToggle({ className }: { className?: string }) {
         size="icon"
         aria-label={label}
         title={label}
-        onClick={() => setCriesMuted(!muted)}
+        onClick={toggle}
         className={cn(
           "pointer-events-auto h-auto w-9 sm:w-11 shrink-0 rounded-xl bg-slate-900/85 text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
-          muted && "text-slate-400",
+          silent && "text-slate-400",
           className,
         )}
       >
-        {muted ? (
+        {silent ? (
           <VolumeX aria-hidden="true" />
         ) : (
           <Volume2 aria-hidden="true" />
