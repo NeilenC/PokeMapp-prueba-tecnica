@@ -100,7 +100,7 @@ function RowAction({
             aria-pressed={pressed}
             disabled={disabled}
             onClick={onClick}
-            className={cn("text-slate-400 hover:text-yellow-300 pointer-coarse:size-10", className)}
+            className={cn("text-slate-400 hover:text-yellow-300 pointer-coarse:size-8", className)}
           >
             {children}
           </Button>
@@ -216,13 +216,13 @@ export function FiltersPanel({
             aria-controls={panelId}
             aria-label={`Pokedex: ${count} de ${total} descubiertos. ${open ? "Cerrar" : "Abrir"} filtros`}
             className={cn(
-              "pointer-events-auto h-auto min-h-11 shrink-0 rounded-xl py-2 has-[>svg]:px-2.5 sm:has-[>svg]:px-3 bg-slate-900/85 font-semibold text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
+              "pointer-events-auto h-auto min-h-9 shrink-0 rounded-xl py-1.5 sm:min-h-11 sm:py-2 has-[>svg]:px-2.5 sm:has-[>svg]:px-3 bg-slate-900/85 font-semibold text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-white",
               active && "ring-2 ring-yellow-300",
             )}
           >
             <ListFilter aria-hidden="true" />
             {/* Contador de Pokedex: reemplaza al texto del botón. */}
-            <span className="flex w-24 flex-col gap-1 text-left sm:w-32">
+            <span className="flex w-20 flex-col gap-1 text-left sm:w-32">
               <span className="flex items-baseline justify-between text-xs">
                 <span className="font-semibold tracking-wide text-yellow-300">
                   POKEDEX
@@ -259,7 +259,7 @@ export function FiltersPanel({
               className="pointer-events-auto flex min-h-0 w-full flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900/90 text-slate-200 shadow-xl backdrop-blur"
             >
               <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-2.5">
-                <h2 className="text-sm font-semibold text-slate-100">Explorar</h2>
+                <h2 className="text-xs font-semibold text-slate-100 sm:text-sm">Explorar</h2>
                 <div className="flex items-center gap-1">
                   {active && (
                     <Button
@@ -267,7 +267,7 @@ export function FiltersPanel({
                       variant="ghost"
                       size="xs"
                       onClick={() => onChange(DEFAULT_FILTERS)}
-                      className="text-yellow-300 hover:text-yellow-200 pointer-coarse:h-9"
+                      className="text-yellow-300 hover:text-yellow-200 pointer-coarse:h-8"
                     >
                       Limpiar filtros
                     </Button>
@@ -278,7 +278,7 @@ export function FiltersPanel({
                     size="icon-xs"
                     onClick={() => setOpen(false)}
                     aria-label="Cerrar panel"
-                    className="text-slate-400 hover:text-white pointer-coarse:size-10"
+                    className="text-slate-400 hover:text-white pointer-coarse:size-8"
                   >
                     <X aria-hidden="true" />
                   </Button>
@@ -304,7 +304,7 @@ export function FiltersPanel({
                       // El color del tipo entra como variable: la barra lateral
                       // siempre lo muestra y el fondo se llena al activarse.
                       style={{ "--c": typeColor(type) } as React.CSSProperties}
-                      className="h-7 w-full rounded-md pointer-coarse:h-10 border border-l-[3px] border-white/10 border-l-(--c) px-1.5 text-[11px] font-medium text-slate-300 hover:bg-white/10 hover:text-white data-[state=on]:border-(--c) data-[state=on]:bg-(--c) data-[state=on]:text-slate-900"
+                      className="h-7 w-full rounded-md pointer-coarse:h-8 border border-l-[3px] border-white/10 border-l-(--c) px-1 text-[10px] sm:px-1.5 sm:text-[11px] font-medium text-slate-300 hover:bg-white/10 hover:text-white data-[state=on]:border-(--c) data-[state=on]:bg-(--c) data-[state=on]:text-slate-900"
                     >
                       <span className="truncate">{typeLabel(type)}</span>
                     </ToggleGroupItem>
@@ -323,7 +323,7 @@ export function FiltersPanel({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar entre mis Pokémon"
                   aria-label="Buscar Pokémon descubierto"
-                  className="h-10 w-full rounded-md border border-white/10 bg-white/[0.06] pr-2 pl-8 sm:h-8 text-xs text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-yellow-300"
+                  className="h-8 w-full rounded-md border border-white/10 bg-white/[0.06] pr-2 pl-8 text-xs text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-yellow-300"
                 />
               </div>
 
@@ -333,7 +333,7 @@ export function FiltersPanel({
                 className="min-h-0 flex-1 gap-0 pt-2"
               >
                 <div className="shrink-0 px-3 pb-2">
-                  <TabsList className="grid h-8 pointer-coarse:h-11 w-full grid-cols-3 bg-white/[0.06]">
+                  <TabsList className="grid h-8 pointer-coarse:h-9 w-full grid-cols-3 bg-white/[0.06]">
                     {VIEWS.map(({ key, label }) => (
                       <TabsTrigger
                         key={key}
@@ -371,7 +371,7 @@ export function FiltersPanel({
                     {groups.map((group) => (
                       <div key={group.type}>
                         <h3
-                          className="sticky top-0 z-[1] flex items-center justify-between bg-slate-900/95 px-3 py-1.5 text-xs font-semibold backdrop-blur"
+                          className="sticky top-0 z-[1] flex items-center justify-between bg-slate-900/95 px-3 py-1 text-[11px] font-semibold backdrop-blur sm:py-1.5 sm:text-xs"
                           style={{ borderLeft: `4px solid ${typeColor(group.type)}` }}
                         >
                           <span>{typeLabel(group.type)}</span>
@@ -407,16 +407,16 @@ export function FiltersPanel({
                                   <img
                                     src={item.spriteUrl}
                                     alt=""
-                                    width={40}
-                                    height={40}
+                                    width={32}
+                                    height={32}
                                     loading="lazy"
                                     draggable={false}
                                     className={cn(
-                                      "size-10 shrink-0 [image-rendering:pixelated]",
+                                      "size-8 shrink-0 [image-rendering:pixelated] sm:size-10",
                                       !found && "brightness-0 opacity-40",
                                     )}
                                   />
-                                  <span className="min-w-0 flex-1 truncate text-sm font-medium capitalize">
+                                  <span className="min-w-0 flex-1 truncate text-xs font-medium capitalize sm:text-sm">
                                     {found ? item.name : "???"}
                                   </span>
                                   <span className="text-xs text-slate-500 tabular-nums">

@@ -1,3 +1,5 @@
+import { getVolumeSnapshot } from "@/lib/volume-store";
+
 /**
  * Gritos (.ogg) del repo oficial de PokéAPI, por id nacional. Se usa la
  * variante `legacy` (los originales de Game Boy): los `latest` suenan
@@ -8,7 +10,10 @@ const CRIES_URL =
 
 export const cryUrl = (id: number) => `${CRIES_URL}/${id}.ogg`;
 
-const VOLUME = 0.5;
+
+// Los `legacy` son de Game Boy (10,5 kHz): suenan agudos y rápidos. Reproducirlos
+// más lento sin conservar el tono los baja de frecuencia y los alarga. 1 = original.
+const PLAYBACK_RATE = 0.7;
 
 // Un único reproductor: al pedir otro grito se corta el anterior, así nunca
 // suenan dos a la vez aunque se seleccione rápido.
@@ -72,8 +77,12 @@ export function playCry(id: number) {
   if (typeof Audio === "undefined" || getMutedSnapshot()) return;
   stopCry();
   player ??= new Audio();
+  // `defaultPlaybackRate` hace que la velocidad sobreviva al cambio de `src`.
+  player.defaultPlaybackRate = PLAYBACK_RATE;
+  player.preservesPitch = false;
   player.src = cryUrl(id);
-  player.volume = VOLUME;
+  player.playbackRate = PLAYBACK_RATE;
+  player.volume = getVolumeSnapshot();
   // Si el navegador bloquea el audio o el archivo falta, se ignora en silencio.
   player.play().catch(() => {});
 }

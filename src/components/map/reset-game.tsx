@@ -42,7 +42,7 @@ export function ResetGame({ discovered, onReset }: Props) {
               variant="ghost"
               size="icon"
               aria-label="Reiniciar juego"
-              className="pointer-events-auto h-auto w-11 shrink-0 rounded-xl bg-slate-900/85 text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-red-300"
+              className="pointer-events-auto h-auto w-9 sm:w-11 shrink-0 rounded-xl bg-slate-900/85 text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-red-300"
             >
               <RotateCcw aria-hidden="true" />
             </Button>

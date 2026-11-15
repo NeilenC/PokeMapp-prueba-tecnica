@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CloudFog, CloudRain } from "lucide-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
+import { setRainIntensity } from "@/lib/rain-sound";
 import { LITORAL, weatherAt } from "@/lib/weather";
 
 /** Umbrales de los carteles, con histéresis para que no parpadeen en el borde. */
@@ -125,6 +126,7 @@ export function WeatherOverlay({ map }: { map: MapLibreMap }) {
       rain = weather.rain;
       if (Math.abs(rain - shownRain) > 0.004) {
         shownRain = rain;
+        setRainIntensity(rain);
         // Cielo cubierto: el velo oscurece un poco aunque no haya gotas (movimiento reducido).
         tintEl.style.opacity = String(rain);
       }
@@ -149,6 +151,7 @@ export function WeatherOverlay({ map }: { map: MapLibreMap }) {
     map.on("move", update);
     return () => {
       map.off("move", update);
+      setRainIntensity(0);
       cancelAnimationFrame(frame);
       observer.disconnect();
     };

@@ -19,7 +19,7 @@ export function HelpButton({ onClick }: { onClick: () => void }) {
           size="icon"
           aria-label="Como jugar"
           onClick={onClick}
-          className="pointer-events-auto h-auto w-11 shrink-0 rounded-xl bg-slate-900/85 text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-yellow-300"
+          className="pointer-events-auto h-auto w-9 sm:w-11 shrink-0 rounded-xl bg-slate-900/85 text-slate-100 shadow-lg backdrop-blur hover:bg-slate-800 hover:text-yellow-300"
         >
           <CircleHelp aria-hidden="true" />
         </Button>
