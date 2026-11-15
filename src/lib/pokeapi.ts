@@ -57,13 +57,12 @@ export async function fetchPokemonPage(
 
   const data = (await res.json()) as PokeApiListResponse;
   // TODO(debug): quitar. Muestra el JSON crudo que devuelve PokéAPI.
-  if (process.env.NODE_ENV === "development") {
-    console.log(
-      `[pokeapi] GET /pokemon?offset=${safeOffset}&limit=${safeLimit}`,
-      JSON.stringify(data, null, 2),
-    );
-  }
-  console.log("DATA: ", data);
+  // if (process.env.NODE_ENV === "development") {
+  //   console.log(
+  //     `[pokeapi] GET /pokemon?offset=${safeOffset}&limit=${safeLimit}`,
+  //     JSON.stringify(data, null, 2),
+  //   );
+  // }
   const typesById = await fetchTypesById(signal);
   const items = data.results.map(({ name, url }) => {
     const id = idFromUrl(url);
