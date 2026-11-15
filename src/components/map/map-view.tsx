@@ -47,6 +47,7 @@ import { addNeighborsMask } from "@/lib/map-mask";
 import { addZoneLayers } from "@/lib/map-zones";
 import { spawnPosition } from "@/lib/spawn";
 import type { PokemonListItem, PokemonPage } from "@/types/pokemon";
+import { ArcadeTip } from "./arcade-tip";
 import { Companion } from "./companion";
 import { ExpeditionDock } from "./expedition-dock";
 import { FiltersPanel } from "./filters-panel";
@@ -74,6 +75,8 @@ const MOVING_IDLE_MS = 600;
 /** Separación mínima entre dos gritos del compañero al descubrir. */
 const PIKACHU_ID = 25;
 const COMPANION_CRY_GAP_MS = 1500;
+/** Tiempo de juego sin hallar a Pikachu antes de darle una pista. */
+const PIKACHU_HINT_MS = 5 * 60 * 1000;
 
 /** Grados por píxel de scroll al rotar/inclinar con Alt + dos dedos. */
 const ALT_ROTATE_SPEED = 0.3;
@@ -163,6 +166,18 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     reset: resetTutorial,
   } = useTutorial(TUTORIAL_TIPS, tutorialCtx, guide !== null);
   const [pikachuPeek, setPikachuPeek] = useState(0);
+  // Pista de Pikachu: a los 5 minutos de juego sin haberlo encontrado.
+  // `hintRun` reinicia el reloj al reiniciar la partida.
+  const [hintRun, setHintRun] = useState(0);
+  const [hintDue, setHintDue] = useState(false);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setHintDue(true), PIKACHU_HINT_MS);
+    return () => clearTimeout(t);
+  }, [hintRun]);
+  const dismissHint = useCallback(() => setHintDismissed(true), []);
+  const showPikachuHint =
+    hintDue && !hintDismissed && !discovered.has(PIKACHU_ID) && guide === null;
   const lastCompanionCry = useRef(0);
   const handleDiscover = useCallback(
     (ids: number[]) => {
@@ -213,6 +228,9 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     setCheer(0);
     setFilters(DEFAULT_FILTERS);
     setGuide("welcome");
+    setHintDue(false);
+    setHintDismissed(false);
+    setHintRun((n) => n + 1);
   }, [resetTutorial]);
 
   // Selección -> vuelo suave hacia el marcador, con offset para que el panel
@@ -688,6 +706,15 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
         onToggleTeam={toggleTeam}
       />
       <PikachuPeek trigger={pikachuPeek} />
+      {showPikachuHint && (
+        <ArcadeTip
+          title="Pista"
+          text="Creo que Pikachu puede estar en la provincia de Buenos Aires"
+          onDismiss={dismissHint}
+          arrowLeft="2rem"
+          className="fixed bottom-[calc(8rem+env(safe-area-inset-bottom))] left-3 z-40"
+        />
+      )}
       <WelcomeModal mode={guide} onClose={() => setGuide(null)} />
       {/* Solo aparece si falla la carga; el progreso normal no se muestra. */}
       {error && (
