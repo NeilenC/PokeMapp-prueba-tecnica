@@ -19,6 +19,7 @@ import { PokemonSheet } from "@/components/pokemon/pokemon-sheet";
 import { usePokemonList } from "@/hooks/use-pokemon-list";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { COARSE_POINTER_QUERY, sheetFlyOffset } from "@/lib/layout-mode";
+import { TiltControl } from "@/lib/tilt-control";
 import {
   discover,
   getServerSnapshot as getServerDiscovered,
@@ -51,6 +52,7 @@ import { ExpeditionDock } from "./expedition-dock";
 import { FiltersPanel } from "./filters-panel";
 import { WeatherOverlay } from "./weather-overlay";
 import { MiniMap } from "./mini-map";
+import { MiniMapToggle } from "./mini-map-toggle";
 import { PikachuPeek } from "./pikachu-peek";
 import { PokedexHud } from "./pokedex-hud";
 import { PokemonMarkers } from "./pokemon-markers";
@@ -126,6 +128,7 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
     else addToTeam(id);
   }, []);
   const showMiniMap = useMediaQuery("(min-width: 640px)");
+  const [miniOpen, setMiniOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const visibleIds = useMemo(() => matchingIds(items, filters), [items, filters]);
   const matchCount = useMemo(() => {
@@ -262,6 +265,9 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
       }),
       "top-right",
     );
+    // En táctil, además, botones para inclinar la cámara (el gesto de dos dedos
+    // no siempre se reconoce). Se apilan debajo de la brújula.
+    if (coarse) map.addControl(new TiltControl(), "top-right");
 
     // --- Terreno 3D + atmósfera -------------------------------------------
     map.on("load", () => {
@@ -629,8 +635,21 @@ export function MapView({ initialPage }: { initialPage: PokemonPage | null }) {
             moving={moving}
             sheetOpen={selectedId !== null}
           />
-          {/* En móvil se omite: un segundo contexto WebGL pesa y ocupa lugar. */}
-          {showMiniMap && <MiniMap map={map} sheetOpen={selectedId !== null} />}
+          {/* En móvil solo se monta si se pide: un segundo contexto WebGL pesa. */}
+          {showMiniMap ? (
+            <MiniMap map={map} sheetOpen={selectedId !== null} />
+          ) : (
+            <>
+              <MiniMapToggle
+                open={miniOpen}
+                onToggle={() => setMiniOpen((v) => !v)}
+                sheetOpen={selectedId !== null}
+              />
+              {miniOpen && (
+                <MiniMap map={map} sheetOpen={selectedId !== null} raised />
+              )}
+            </>
+          )}
         </>
       )}
       <FiltersPanel

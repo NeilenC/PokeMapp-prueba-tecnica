@@ -21,7 +21,7 @@ function Key({ children }: { children: React.ReactNode }) {
 const TOUCH_CONTROLS: { keys: React.ReactNode; text: string }[] = [
   { keys: <Key>Arrastrar</Key>, text: "Mover el mapa" },
   { keys: <Key>Pellizcar</Key>, text: "Acercar o alejar" },
-  { keys: <Key>2 dedos ↕</Key>, text: "Inclinar la cámara" },
+  { keys: <Key>▲ ▼</Key>, text: "Botones bajo la brújula: inclinar la cámara" },
   { keys: <Key>Girar</Key>, text: "Rotar con dos dedos" },
   { keys: <Key>Tocar</Key>, text: "Ver la ficha de un Pokémon" },
   { keys: <Key>Brújula</Key>, text: "Volver al norte" },

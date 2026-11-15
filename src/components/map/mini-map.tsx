@@ -22,6 +22,8 @@ interface Props {
   map: MapLibreMap;
   /** Hay un Pokémon abierto: el panel ocupa el costado/borde inferior. */
   sheetOpen: boolean;
+  /** Móvil: se sube para dejar lugar al botón que lo abre, sobre el control de atribución. */
+  raised?: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ interface Props {
  * grande y un punto en su centro, así se sabe dónde se está aunque el zoom
  * sea muy alto.
  */
-export function MiniMap({ map, sheetOpen }: Props) {
+export function MiniMap({ map, sheetOpen, raised = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -143,7 +145,8 @@ export function MiniMap({ map, sheetOpen }: Props) {
       aria-label="Minimapa de Argentina: tocá un punto para ir hasta ahí"
       role="img"
       className={cn(
-        "absolute right-3 bottom-9 z-[1] h-[170px] w-[120px] overflow-hidden rounded-lg border-2 border-white/80 shadow-lg transition-[right,opacity] duration-300 lg:h-[200px] lg:w-[140px]",
+        "absolute right-3 z-[1] h-[170px] w-[120px] overflow-hidden rounded-lg border-2 border-white/80 shadow-lg transition-[right,opacity] duration-300 lg:h-[200px] lg:w-[140px]",
+        raised ? "bottom-24" : "bottom-9",
         // Con bottom sheet se oculta; con drawer lateral (380 px + 12 de margen,
         // ver SHEET_SIDE_WIDTH) se corre a su izquierda.
         sheetOpen &&
